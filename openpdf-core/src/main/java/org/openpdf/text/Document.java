@@ -50,6 +50,7 @@
 package org.openpdf.text;
 
 import org.openpdf.text.error_messages.MessageLocalization;
+import org.openpdf.text.pdf.NativePlatform;
 import org.openpdf.text.pdf.PdfDate;
 import java.io.IOException;
 import java.io.InputStream;
@@ -245,6 +246,10 @@ public class Document implements DocListener {
 
     private static String getVersionNumber() {
         String releaseVersion = "UNKNOWN";
+        // The marker is tested here, so that TeaVM (C) prunes the class loader code
+        if (NativePlatform.isC()) {
+            return releaseVersion;
+        }
         try (InputStream input = Document.class.getClassLoader()
                 .getResourceAsStream(VERSION_PROPERTIES)) {
             if (input != null) {

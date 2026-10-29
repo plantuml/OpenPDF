@@ -235,7 +235,7 @@ public final class MessageLocalization {
             } else {
                 file = language + ".lng";
             }
-            is = BaseFont.getResourceStream(BASE_PATH + file, MessageLocalization.class.getClassLoader());
+            is = BaseFont.getResourceStream(BASE_PATH + file);
             if (is != null) {
                 return readLanguageStream(is);
             }
@@ -243,7 +243,7 @@ public final class MessageLocalization {
                 return null;
             }
             file = language + ".lng";
-            is = BaseFont.getResourceStream(BASE_PATH + file, MessageLocalization.class.getClassLoader());
+            is = BaseFont.getResourceStream(BASE_PATH + file);
             if (is != null) {
                 return readLanguageStream(is);
             } else {

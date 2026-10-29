@@ -910,6 +910,18 @@ public abstract class BaseFont {
         return new EnumerateTTC(ttcArray).getNames();
     }
 
+    private static volatile ResourceProvider resourceProvider;
+
+    /**
+     * Installs a source of resources that is tried before the class loaders (and the only
+     * one in a native executable).
+     *
+     * @param provider the provider, or {@code null} to remove it
+     */
+    public static void setResourceProvider(ResourceProvider provider) {
+        resourceProvider = provider;
+    }
+
     /**
      * Gets the font resources.
      *
@@ -932,6 +944,22 @@ public abstract class BaseFont {
     public static InputStream getResourceStream(String key, ClassLoader loader) {
         if (key.startsWith("/")) {
             key = key.substring(1);
+        }
+        final ResourceProvider provider = resourceProvider;
+        if (provider != null) {
+            try {
+                final InputStream fromProvider = provider.open(key);
+                if (fromProvider != null) {
+                    return new BufferedInputStream(fromProvider);
+                }
+            } catch (IOException e) {
+                // fall through
+            }
+        }
+        // Native executable (TeaVM C): no class loader, only the provider above.
+        // The marker is tested here, so that TeaVM prunes the class loader code below.
+        if (NativePlatform.isC()) {
+            return null;
         }
         InputStream is = null;
         if (loader != null) {
