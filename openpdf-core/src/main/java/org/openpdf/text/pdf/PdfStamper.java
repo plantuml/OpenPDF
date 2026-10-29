@@ -969,8 +969,4 @@ public class PdfStamper
         this.stamper.setUpdateDocInfo(updateDocInfo);
     }
 
-    public PdfStamper setGlyphLayoutManager(GlyphLayoutManager glyphLayoutManager) {
-        this.stamper.setGlyphLayoutManager(glyphLayoutManager);
-        return this;
-    }
 }

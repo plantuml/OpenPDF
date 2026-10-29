@@ -60,7 +60,6 @@ import org.openpdf.text.ImgWMF;
 import org.openpdf.text.Rectangle;
 import org.openpdf.text.Table;
 import org.openpdf.text.error_messages.MessageLocalization;
-import org.openpdf.text.pdf.codec.BrotliFilter;
 import org.openpdf.text.pdf.collection.PdfCollection;
 import org.openpdf.text.pdf.events.PdfPageEventForwarder;
 import org.openpdf.text.pdf.interfaces.PdfAnnotations;
@@ -613,12 +612,6 @@ public class PdfWriter extends DocWriter implements
      */
     protected int compressionLevel = PdfStream.DEFAULT_COMPRESSION;
     /**
-     * Whether streams written by this writer (notably page content streams) should be
-     * compressed using Brotli ({@code /BrotliDecode}) instead of Flate ({@code /FlateDecode}).
-     * Defaults to the value of {@link org.openpdf.text.Document#useBrotliCompression}.
-     */
-    protected boolean useBrotliCompression = Document.useBrotliCompression;
-    /**
      * The fonts of this document
      */
     protected LinkedHashMap<BaseFont, FontDetails> documentFonts = new LinkedHashMap<>();
@@ -768,7 +761,6 @@ public class PdfWriter extends DocWriter implements
             throws DocumentException {
         PdfDocument pdf = new PdfDocument();
         pdf.setTextRenderingOptions(document.getTextRenderingOptions());
-        pdf.setGlyphLayoutManager(document.getGlyphLayoutManager());
         document.addDocListener(pdf);
         PdfWriter writer = new PdfWriter(pdf, os);
         pdf.addWriter(writer);
@@ -789,7 +781,6 @@ public class PdfWriter extends DocWriter implements
             throws DocumentException {
         PdfDocument pdf = new PdfDocument();
         pdf.setTextRenderingOptions(document.getTextRenderingOptions());
-        pdf.setGlyphLayoutManager(document.getGlyphLayoutManager());
         pdf.addDocListener(listener);
         document.addDocListener(pdf);
         PdfWriter writer = new PdfWriter(pdf, os);
@@ -2058,44 +2049,6 @@ public class PdfWriter extends DocWriter implements
     }
 
     /**
-     * Returns whether this writer compresses page content streams with Brotli
-     * ({@code /BrotliDecode}) instead of Flate ({@code /FlateDecode}).
-     *
-     * @return {@code true} if Brotli compression is enabled
-     */
-    public boolean isUseBrotliCompression() {
-        return useBrotliCompression;
-    }
-
-    /**
-     * Enables or disables Brotli compression for page content streams produced by this
-     * writer. When enabled, the streams use the {@code /BrotliDecode} filter — being
-     * standardised as a PDF 2.0 (ISO 32000-2) stream filter through ISO/TS 32001 —
-     * instead of {@code /FlateDecode}. Has no effect if {@link Document#compress}
-     * is {@code false}.
-     * <p>
-     * This performs a fail-fast availability check via
-     * {@link BrotliFilter#ensureAvailable()} when enabling Brotli. If the brotli4j
-     * native library cannot be loaded, a warning is written to {@code System.err}
-     * and Brotli compression is left disabled.
-     *
-     * @param useBrotliCompression {@code true} to enable Brotli, {@code false} for Flate
-     */
-    public void setUseBrotliCompression(boolean useBrotliCompression) {
-        if (useBrotliCompression) {
-            try {
-                BrotliFilter.ensureAvailable();
-            } catch (IOException e) {
-                System.err.println("OpenPDF: Brotli compression requested but unavailable: "
-                        + e.getMessage() + " - falling back to Flate compression.");
-                this.useBrotliCompression = false;
-                return;
-            }
-        }
-        this.useBrotliCompression = useBrotliCompression;
-    }
-
-    /**
      * Adds a <CODE>BaseFont</CODE> to the document but not to the page resources. It is used for templates.
      *
      * @param bf the <CODE>BaseFont</CODE> to add
@@ -3054,10 +3007,6 @@ public class PdfWriter extends DocWriter implements
      */
     public void setRgbTransparencyBlending(boolean rgbTransparencyBlending) {
         this.rgbTransparencyBlending = rgbTransparencyBlending;
-    }
-
-    public void setGlyphLayoutManager(GlyphLayoutManager glyphLayoutManager) {
-        this.pdf.setGlyphLayoutManager(glyphLayoutManager);
     }
 
     /**

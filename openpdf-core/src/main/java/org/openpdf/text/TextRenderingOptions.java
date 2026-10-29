@@ -1,6 +1,5 @@
 package org.openpdf.text;
 
-import org.openpdf.text.pdf.FopGlyphProcessor;
 
 /**
  * Text rendering options, including the default language of the document and a flag to enable font glyph substitution
@@ -16,7 +15,7 @@ public class TextRenderingOptions {
 
     /**
      * The default language of the document. Can be set to values like "en_US". This language is used in
-     * {@link FopGlyphProcessor} to determine which glyphs are to be substituted. The default "dflt" means that all
+     * FopGlyphProcessor to determine which glyphs are to be substituted. The default "dflt" means that all
      * glyphs which can be replaced will be substituted.
      */
     private String documentLanguage;

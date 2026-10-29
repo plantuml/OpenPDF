@@ -717,6 +717,27 @@ public class ArabicLigaturizer {
     }
 
     /**
+     * Approximation of {@link Character#getDirectionality(char)} limited to what
+     * {@link #shapeToArabicDigitsWithContext} needs (not available in every runtime, for instance TeaVM).
+     */
+    private static byte directionality(char ch) {
+        if (ch >= '0' && ch <= '9') {
+            return Character.DIRECTIONALITY_EUROPEAN_NUMBER;
+        }
+        if ((ch >= 'A' && ch <= 'Z') || (ch >= 'a' && ch <= 'z') || (ch >= '\u00C0' && ch <= '\u02B8')) {
+            return Character.DIRECTIONALITY_LEFT_TO_RIGHT;
+        }
+        if (ch >= '\u0590' && ch <= '\u05FF') {
+            return Character.DIRECTIONALITY_RIGHT_TO_LEFT;
+        }
+        if ((ch >= '\u0600' && ch <= '\u07BF') || (ch >= '\u0870' && ch <= '\u08FF')
+                || (ch >= '\uFB50' && ch <= '\uFDFF') || (ch >= '\uFE70' && ch <= '\uFEFF')) {
+            return Character.DIRECTIONALITY_RIGHT_TO_LEFT_ARABIC;
+        }
+        return Character.DIRECTIONALITY_UNDEFINED;
+    }
+
+    /**
      * Given an array of characters, process a section of it, and replace European numeral characters (0-9) with Arabic
      * numeral characters (depending on the {@code digitBase}) if the characters are preceded by Arabic characters.
      *
@@ -739,7 +760,7 @@ public class ArabicLigaturizer {
         int limit = start + length;
         for (int i = start; i < limit; ++i) {
             char ch = dest[i];
-            switch (Character.getDirectionality(ch)) {
+            switch (directionality(ch)) {
                 case Character.DIRECTIONALITY_LEFT_TO_RIGHT:
                 case Character.DIRECTIONALITY_RIGHT_TO_LEFT:
                     lastStrongWasAL = false;

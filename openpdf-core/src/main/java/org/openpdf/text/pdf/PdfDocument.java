@@ -50,7 +50,6 @@
 package org.openpdf.text.pdf;
 
 import static org.openpdf.text.pdf.PdfAnnotation.FLAGS_PRINT;
-import static java.awt.Font.LAYOUT_RIGHT_TO_LEFT;
 
 import org.openpdf.text.Anchor;
 import org.openpdf.text.Annotation;
@@ -1393,7 +1392,7 @@ public class PdfDocument extends Document {
         } else if (isJustified) {
             if (line.isNewlineSplit() && line.widthLeft() >= (lastBaseFactor * (ratio * numberOfSpaces + lineLen
                     - 1))) {
-                if (line.isRTL() || (LayoutProcessor.isEnabled() && LayoutProcessor.isSet(LAYOUT_RIGHT_TO_LEFT))) {
+                if (line.isRTL()) {
                     text.moveText(line.widthLeft() - lastBaseFactor * (ratio * numberOfSpaces + lineLen - 1), 0);
                 }
                 baseWordSpacing = ratio * lastBaseFactor;
@@ -1720,9 +1719,6 @@ public class PdfDocument extends Document {
                 } else {
                     float spaceCorrection = -baseWordSpacing * 1000f / chunk.font.size() / hScale;
                     PdfTextArray textArray = new PdfTextArray();
-                    if (LayoutProcessor.isEnabled() && LayoutProcessor.isSet(LAYOUT_RIGHT_TO_LEFT)) {
-                        textArray.setRTL(true);
-                    }
                     textArray.add(s.substring(0, idx));
                     int lastIdx = idx;
                     while ((idx = indexOfSpace(s, lastIdx + 1)) >= 0) {

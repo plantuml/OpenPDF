@@ -425,7 +425,7 @@ public class PdfOutline extends PdfDictionary {
      */
 
     public void toPdf(PdfWriter writer, OutputStream os) throws IOException {
-        if (color != null && !color.equals(Color.black)) {
+        if (color != null && (color.getRed() != 0 || color.getGreen() != 0 || color.getBlue() != 0)) {
             put(PdfName.C,
                     new PdfArray(new float[]{color.getRed() / 255f, color.getGreen() / 255f, color.getBlue() / 255f}));
         }

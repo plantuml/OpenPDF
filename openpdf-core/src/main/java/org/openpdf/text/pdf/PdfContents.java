@@ -52,7 +52,6 @@ package org.openpdf.text.pdf;
 import org.openpdf.text.DocWriter;
 import org.openpdf.text.Document;
 import org.openpdf.text.Rectangle;
-import org.openpdf.text.pdf.codec.BrotliFilter;
 import java.io.ByteArrayOutputStream;
 import java.io.OutputStream;
 import java.util.zip.Deflater;
@@ -88,17 +87,11 @@ class PdfContents extends PdfStream {
         super();
         try {
             PdfWriter writer = text.getPdfWriter();
-            boolean useBrotli = Document.compress
-                    && writer != null
-                    && writer.isUseBrotliCompression();
             streamBytes = new ByteArrayOutputStream();
 
             OutputStream out;
             Deflater deflater = null;
-            if (useBrotli) {
-                compressed = true;
-                out = BrotliFilter.encoder(streamBytes);
-            } else if (Document.compress) {
+            if (Document.compress) {
                 compressed = true;
                 compressionLevel = writer.getCompressionLevel();
                 deflater = new Deflater(compressionLevel);
@@ -156,7 +149,7 @@ class PdfContents extends PdfStream {
 
             put(PdfName.LENGTH, new PdfNumber(streamBytes.size()));
             if (compressed) {
-                put(PdfName.FILTER, useBrotli ? PdfName.BROTLIDECODE : PdfName.FLATEDECODE);
+                put(PdfName.FILTER, PdfName.FLATEDECODE);
             }
         } catch (Exception e) {
             throw new BadPdfFormatException(e.getMessage());

@@ -252,15 +252,8 @@ class FontDetails {
                         b = s.getBytes(CJKFont.CJK_ENCODING);
 
                     } else {
-                        String fileName = ((TrueTypeFontUnicode) getBaseFont()).fileName;
-                        if (options.isGlyphSubstitutionEnabled() && FopGlyphProcessor.isFopSupported()
-                                && (fileName != null && fileName.length() > 0
-                                && (fileName.contains(".ttf") || fileName.contains(".TTF")))) {
-                            return FopGlyphProcessor.convertToBytesWithGlyphs(ttu, text, fileName, longTag,
-                                    options.getDocumentLanguage());
-                        } else {
-                            return convertToBytesWithGlyphs(text);
-                        }
+                        // No FOP glyph substitution in this fork (see FopGlyphProcessor in OpenPDF)
+                        return convertToBytesWithGlyphs(text);
                     }
                 } catch (UnsupportedEncodingException e) {
                     throw new ExceptionConverter(e);

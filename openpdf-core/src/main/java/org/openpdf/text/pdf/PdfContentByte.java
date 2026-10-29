@@ -67,7 +67,6 @@ import org.openpdf.text.pdf.internal.PdfXConformanceImp;
 import java.awt.Color;
 import java.awt.font.GlyphVector;
 import java.awt.geom.AffineTransform;
-import java.awt.geom.Point2D;
 import java.awt.print.PrinterJob;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -202,8 +201,6 @@ public class PdfContentByte {
     private int lastFillAlpha = MAX_COLOR_VALUE;
     private int lastStrokeAlpha = MAX_COLOR_VALUE;
 
-    // Correction to apply to next moveText after calling LayoutProcessor.showText
-    private Point2D layoutPositionCorrection = null;
 
     /**
      * Constructs a new <CODE>PdfContentByte</CODE>-object.
@@ -1590,7 +1587,6 @@ public class PdfContentByte {
         inText = true;
         state.xTLM = 0;
         state.yTLM = 0;
-        layoutPositionCorrection = null;
         content.append("BT").append_i(separator);
     }
 
@@ -1691,7 +1687,7 @@ public class PdfContentByte {
     }
 
     /**
-     * Shows the <CODE>text</CODE>. If applicable, the LayoutProcessor is used
+     * Shows the <CODE>text</CODE>.
      *
      * @param text the text to write
      */
@@ -1700,21 +1696,7 @@ public class PdfContentByte {
             throw new NullPointerException(
                     MessageLocalization.getComposedMessage("font.and.size.must.be.set.before.writing.any.text"));
         }
-        BaseFont baseFont = state.fontDetails.getBaseFont();
-        GlyphLayoutManager glyphLayoutManager = writer.getPdfDocument().getGlyphLayoutManager();
-        if (glyphLayoutManager != null && glyphLayoutManager.supportsFont(baseFont)) {
-            glyphLayoutManager.showText(this, baseFont, state.size, text);
-        } else if (LayoutProcessor.supportsFont(baseFont)) {
-            Point2D corr = LayoutProcessor.showText(this, baseFont, state.size, text);
-            if (layoutPositionCorrection == null) {
-                layoutPositionCorrection = corr;
-            } else {
-                layoutPositionCorrection.setLocation(layoutPositionCorrection.getX() + corr.getX(),
-                        layoutPositionCorrection.getY() + corr.getY());
-            }
-        } else {
-            showTextBasic(text);
-        }
+        showTextBasic(text);
     }
 
     /**
@@ -1841,11 +1823,6 @@ public class PdfContentByte {
      * @param y y-coordinate of the new current point
      */
     public void moveText(float x, float y) {
-        if (layoutPositionCorrection != null) {
-            x += (float) layoutPositionCorrection.getX();
-            y += (float) layoutPositionCorrection.getY();
-            layoutPositionCorrection = null;
-        }
         moveTextBasic(x, y);
     }
 
@@ -1870,11 +1847,6 @@ public class PdfContentByte {
      * @param y y-coordinate of the new current point
      */
     public void moveTextWithLeading(float x, float y) {
-        if (layoutPositionCorrection != null) {
-            x += (float) layoutPositionCorrection.getX();
-            y += (float) layoutPositionCorrection.getY();
-            layoutPositionCorrection = null;
-        }
         state.xTLM += x;
         state.yTLM += y;
         state.leading = -y;

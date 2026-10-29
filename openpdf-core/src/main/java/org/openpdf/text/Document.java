@@ -50,8 +50,6 @@
 package org.openpdf.text;
 
 import org.openpdf.text.error_messages.MessageLocalization;
-import org.openpdf.text.pdf.FopGlyphProcessor;
-import org.openpdf.text.pdf.GlyphLayoutManager;
 import org.openpdf.text.pdf.PdfDate;
 import java.io.IOException;
 import java.io.InputStream;
@@ -112,14 +110,6 @@ public class Document implements DocListener {
      */
     public static boolean compress = true;
     /**
-     * When {@code true}, page content streams written by OpenPDF are compressed with the
-     * Brotli algorithm and tagged with the {@code /BrotliDecode} filter instead of the
-     * default {@code /FlateDecode}. Brotli is being standardised as a PDF 2.0
-     * (ISO 32000-2) stream filter through ISO/TS 32001. This requires {@link #compress}
-     * to also be {@code true}. Default is {@code false}.
-     */
-    public static boolean useBrotliCompression = false;
-    /**
      * When true the file access is not done through a memory mapped file. Use it if the file is too big to be mapped in
      * your address space.
      */
@@ -138,11 +128,6 @@ public class Document implements DocListener {
      * The DocListener.
      */
     private final List<DocListener> listeners = new ArrayList<>();
-
-    /**
-     * GlyphLayoutManager if set, null otherwise
-     */
-    private GlyphLayoutManager glyphLayoutManager;
 
     /**
      * Is the document open or not?
@@ -221,28 +206,6 @@ public class Document implements DocListener {
      * @since 3.1.15
      */
     TextRenderingOptions textRenderingOptions = new TextRenderingOptions();
-
-    /**
-     * Get the glyphLayoutManager
-     *
-     * @return glyphLayoutManager or null
-     */
-    public GlyphLayoutManager getGlyphLayoutManager() {
-        return glyphLayoutManager;
-    }
-
-    /**
-     * Set the glyphLayoutManager
-     * Fluent API: <code>Document document = new Document().setGlyphLayoutManager(glyphLayoutManager);</code>
-     *
-     * @param glyphLayoutManager
-     * @return
-     */
-    public Document setGlyphLayoutManager(GlyphLayoutManager glyphLayoutManager) {
-        setGlyphSubstitutionEnabled(false); // Use either FopGlyphSubstition or GlyphLayoutManager, not both.
-        this.glyphLayoutManager = glyphLayoutManager;
-        return this;
-    }
 
     /**
      * Constructs a new <CODE>Document</CODE> -object with the default page size as <CODE>PageSize.A4</CODE> .
@@ -1060,7 +1023,6 @@ public class Document implements DocListener {
      * Set a flag that determine whether glyph substion is enabled when FOP is available.
      *
      * @param glyphSubstitutionEnabled the glyph substitution enabled flag
-     * @see FopGlyphProcessor
      * @see #setDocumentLanguage(String)
      */
     public void setGlyphSubstitutionEnabled(boolean glyphSubstitutionEnabled) {
