@@ -47,6 +47,7 @@
 
 package org.openpdf.text.pdf;
 
+import org.openpdf.text.utils.UrlStreams;
 import org.openpdf.text.error_messages.MessageLocalization;
 import org.openpdf.text.pdf.collection.PdfCollectionItem;
 import java.io.File;
@@ -200,7 +201,7 @@ public class PdfFileSpecification extends PdfDictionary {
                 } else {
                     if (filePath.startsWith("file:/") || filePath.startsWith("http://") || filePath.startsWith(
                             "https://") || filePath.startsWith("jar:")) {
-                        in = new URL(filePath).openStream();
+                        in = UrlStreams.open(new URL(filePath));
                     } else {
                         in = BaseFont.getResourceStream(filePath);
                         if (in == null) {

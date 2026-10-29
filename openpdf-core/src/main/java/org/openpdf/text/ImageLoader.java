@@ -45,6 +45,7 @@
 
 package org.openpdf.text;
 
+import org.openpdf.text.utils.UrlStreams;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
@@ -72,7 +73,7 @@ public class ImageLoader {
      * @return an object of type <code>Image</code>
      */
     public static Image getPngImage(URL url) {
-        try (InputStream is = url.openStream()) {
+        try (InputStream is = UrlStreams.open(url)) {
             BufferedImage bufferedImage = ImageIO.read(is);
             return getImage(bufferedImage, Image.ORIGINAL_PNG);
         } catch (Exception e) {
@@ -89,7 +90,7 @@ public class ImageLoader {
     }
 
     public static Image getGifImage(URL url) {
-        try (InputStream is = url.openStream()) {
+        try (InputStream is = UrlStreams.open(url)) {
             BufferedImage bufferedImage = ImageIO.read(is);
             return getImage(bufferedImage, Image.ORIGINAL_GIF);
         } catch (Exception e) {
@@ -98,7 +99,7 @@ public class ImageLoader {
     }
 
     public static Image getTiffImage(URL url) {
-        try (InputStream is = url.openStream()) {
+        try (InputStream is = UrlStreams.open(url)) {
             BufferedImage bufferedImage = ImageIO.read(is);
             return getImage(bufferedImage, Image.ORIGINAL_TIFF);
         } catch (Exception e) {
@@ -108,7 +109,7 @@ public class ImageLoader {
 
 
     public static Image getBmpImage(URL url) {
-        try (InputStream is = url.openStream()) {
+        try (InputStream is = UrlStreams.open(url)) {
             BufferedImage bufferedImage = ImageIO.read(is);
             return getImage(bufferedImage, Image.ORIGINAL_BMP);
         } catch (Exception e) {
@@ -123,7 +124,7 @@ public class ImageLoader {
      * @return an object of type <code>Image</code>
      */
     public static Image getJpegImage(URL url) {
-        try (InputStream is = url.openStream()) {
+        try (InputStream is = UrlStreams.open(url)) {
             byte[] imageBytes = Utilities.toByteArray(is);
             return new Jpeg(imageBytes);
         } catch (Exception e) {
@@ -132,7 +133,7 @@ public class ImageLoader {
     }
 
     public static Image getJpeg2000Image(URL url) {
-        try (InputStream is = url.openStream()) {
+        try (InputStream is = UrlStreams.open(url)) {
             byte[] imageBytes = Utilities.toByteArray(is);
             return new Jpeg2000(imageBytes);
         } catch (Exception e) {

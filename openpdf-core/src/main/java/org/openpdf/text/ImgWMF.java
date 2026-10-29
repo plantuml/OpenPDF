@@ -50,6 +50,7 @@
 
 package org.openpdf.text;
 
+import org.openpdf.text.utils.UrlStreams;
 import org.openpdf.text.error_messages.MessageLocalization;
 import org.openpdf.text.pdf.PdfTemplate;
 import org.openpdf.text.pdf.codec.wmf.InputMeta;
@@ -129,7 +130,7 @@ public class ImgWMF extends Image {
         try {
             String errorID;
             if (rawData == null) {
-                is = url.openStream();
+                is = UrlStreams.open(url);
                 errorID = url.toString();
             } else {
                 is = new java.io.ByteArrayInputStream(rawData);
@@ -175,7 +176,7 @@ public class ImgWMF extends Image {
         InputStream is = null;
         try {
             if (rawData == null) {
-                is = url.openStream();
+                is = UrlStreams.open(url);
             } else {
                 is = new java.io.ByteArrayInputStream(rawData);
             }

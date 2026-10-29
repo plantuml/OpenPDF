@@ -49,6 +49,7 @@
 
 package org.openpdf.text.pdf;
 
+import org.openpdf.text.utils.UrlStreams;
 import org.openpdf.text.Image;
 import org.openpdf.text.error_messages.MessageLocalization;
 import java.io.ByteArrayOutputStream;
@@ -191,7 +192,7 @@ public class PdfImage extends PdfStream {
             // GIF, JPEG or PNG
             String errorID;
             if (image.getRawData() == null) {
-                is = image.getUrl().openStream();
+                is = UrlStreams.open(image.getUrl());
                 errorID = image.getUrl().toString();
             } else {
                 is = new java.io.ByteArrayInputStream(image.getRawData());

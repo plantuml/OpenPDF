@@ -49,6 +49,7 @@
 
 package org.openpdf.text;
 
+import org.openpdf.text.utils.UrlStreams;
 import org.openpdf.text.error_messages.MessageLocalization;
 import java.io.IOException;
 import java.io.InputStream;
@@ -164,7 +165,7 @@ public class Jpeg2000 extends Image {
         inp = null;
         try {
             if (rawData == null) {
-                inp = url.openStream();
+                inp = UrlStreams.open(url);
             } else {
                 inp = new java.io.ByteArrayInputStream(rawData);
             }

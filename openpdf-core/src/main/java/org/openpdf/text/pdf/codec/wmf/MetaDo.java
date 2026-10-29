@@ -50,6 +50,7 @@
 
 package org.openpdf.text.pdf.codec.wmf;
 
+import org.openpdf.text.utils.UrlStreams;
 import org.openpdf.text.DocumentException;
 import org.openpdf.text.Image;
 import org.openpdf.text.error_messages.MessageLocalization;
@@ -164,7 +165,7 @@ public class MetaDo {
         InputStream imgIn;
         byte[] data = null;
         if (image.getOriginalData() == null) {
-            imgIn = image.getUrl().openStream();
+            imgIn = UrlStreams.open(image.getUrl());
             ByteArrayOutputStream out = new ByteArrayOutputStream();
             int b = 0;
             while ((b = imgIn.read()) != -1) {

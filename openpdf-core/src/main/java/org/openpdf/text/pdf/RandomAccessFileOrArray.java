@@ -49,6 +49,7 @@
 
 package org.openpdf.text.pdf;
 
+import org.openpdf.text.utils.UrlStreams;
 import org.openpdf.text.Document;
 import org.openpdf.text.FontFactory;
 import org.openpdf.text.error_messages.MessageLocalization;
@@ -99,7 +100,7 @@ public class RandomAccessFileOrArray implements DataInput, Closeable {
             if (filename.startsWith("file:/") || filename.startsWith("http://")
                     || filename.startsWith("https://") || filename.startsWith("jar:") || filename.startsWith(
                     "wsjar:")) {
-                try (InputStream is = new URL(filename).openStream()) {
+                try (InputStream is = UrlStreams.open(new URL(filename))) {
                     this.arrayIn = InputStreamToArray(is);
                     return;
                 }
@@ -135,7 +136,7 @@ public class RandomAccessFileOrArray implements DataInput, Closeable {
     }
 
     public RandomAccessFileOrArray(URL url) throws IOException {
-        try (InputStream is = url.openStream()) {
+        try (InputStream is = UrlStreams.open(url)) {
             this.arrayIn = InputStreamToArray(is);
         }
     }

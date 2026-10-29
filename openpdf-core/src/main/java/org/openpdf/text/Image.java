@@ -49,6 +49,7 @@
 
 package org.openpdf.text;
 
+import org.openpdf.text.utils.UrlStreams;
 import org.openpdf.text.error_messages.MessageLocalization;
 import org.openpdf.text.pdf.PRIndirectReference;
 import org.openpdf.text.pdf.PdfArray;
@@ -566,7 +567,7 @@ public abstract class Image extends Rectangle {
      * @throws IOException           if image is not recognized
      */
     public static Image getInstance(URL url) throws BadElementException, IOException {
-        try (InputStream is = url.openStream()) {
+        try (InputStream is = UrlStreams.open(url)) {
             int[] array = readFirst8Chars(is);
             Optional<ImageType> o = Arrays.stream(ImageType.values()).filter(t -> t.matches(array)).findFirst();
             ImageType imageType = o.orElseThrow(() -> new IOException(

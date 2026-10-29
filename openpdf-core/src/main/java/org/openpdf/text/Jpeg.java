@@ -49,6 +49,7 @@
 
 package org.openpdf.text;
 
+import org.openpdf.text.utils.UrlStreams;
 import org.openpdf.text.error_messages.MessageLocalization;
 import java.awt.color.ICC_Profile;
 import java.io.IOException;
@@ -223,7 +224,7 @@ public class Jpeg extends Image {
         try {
             String errorID;
             if (rawData == null) {
-                is = url.openStream();
+                is = UrlStreams.open(url);
                 errorID = url.toString();
             } else {
                 is = new java.io.ByteArrayInputStream(rawData);
