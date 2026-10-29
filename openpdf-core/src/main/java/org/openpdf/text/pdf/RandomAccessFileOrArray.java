@@ -51,7 +51,6 @@ package org.openpdf.text.pdf;
 
 import org.openpdf.text.utils.UrlStreams;
 import org.openpdf.text.Document;
-import org.openpdf.text.FontFactory;
 import org.openpdf.text.error_messages.MessageLocalization;
 import java.io.ByteArrayOutputStream;
 import java.io.Closeable;
@@ -92,10 +91,6 @@ public class RandomAccessFileOrArray implements DataInput, Closeable {
     public RandomAccessFileOrArray(String filename, boolean forceRead, boolean plainRandomAccess) throws IOException {
         this.plainRandomAccess = plainRandomAccess;
         File file = new File(filename);
-        if (!file.exists() && FontFactory.isRegistered(filename)) {
-            filename = (String) FontFactory.getFontImp().getFontPath(filename);
-            file = new File(filename);
-        }
         if (!file.canRead()) {
             if (filename.startsWith("file:/") || filename.startsWith("http://")
                     || filename.startsWith("https://") || filename.startsWith("jar:") || filename.startsWith(

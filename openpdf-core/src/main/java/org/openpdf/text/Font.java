@@ -49,7 +49,6 @@
 
 package org.openpdf.text;
 
-import org.openpdf.text.html.Markup;
 import org.openpdf.text.pdf.BaseFont;
 import java.awt.Color;
 import java.util.Locale;
@@ -288,34 +287,6 @@ public class Font implements Comparable {
         this(UNDEFINED, UNDEFINED, UNDEFINED, null);
     }
 
-    // implementation of the Comparable interface
-
-    /**
-     * Translates a <CODE>String</CODE> -value of a certain family into the index that is used for this family in this
-     * class.
-     *
-     * @param family A <CODE>String</CODE> representing a certain font-family
-     * @return the corresponding index
-     */
-    public static int getFamilyIndex(String family) {
-        if (family.equalsIgnoreCase(FontFactory.COURIER)) {
-            return COURIER;
-        }
-        if (family.equalsIgnoreCase(FontFactory.HELVETICA)) {
-            return HELVETICA;
-        }
-        if (family.equalsIgnoreCase(FontFactory.TIMES_ROMAN)) {
-            return TIMES_ROMAN;
-        }
-        if (family.equalsIgnoreCase(FontFactory.SYMBOL)) {
-            return SYMBOL;
-        }
-        if (family.equalsIgnoreCase(FontFactory.ZAPFDINGBATS)) {
-            return ZAPFDINGBATS;
-        }
-        return UNDEFINED;
-    }
-
     // FAMILY
 
     /**
@@ -340,36 +311,6 @@ public class Font implements Comparable {
             fontStyle |= Font.ITALIC;
         }
         return fontStyle;
-    }
-
-    /**
-     * Translates a <CODE>String</CODE> -value of a certain style into the index value is used for this style in this
-     * class.
-     *
-     * @param style A <CODE>String</CODE>
-     * @return the corresponding value
-     */
-    public static int getStyleValue(String style) {
-        int s = 0;
-        if (style.contains(Markup.CSS_VALUE_NORMAL)) {
-            s |= NORMAL;
-        }
-        if (style.contains(Markup.CSS_VALUE_BOLD)) {
-            s |= BOLD;
-        }
-        if (style.contains(Markup.CSS_VALUE_ITALIC)) {
-            s |= ITALIC;
-        }
-        if (style.contains(Markup.CSS_VALUE_OBLIQUE)) {
-            s |= ITALIC;
-        }
-        if (style.contains(Markup.CSS_VALUE_UNDERLINE)) {
-            s |= UNDERLINE;
-        }
-        if (style.contains(Markup.CSS_VALUE_LINETHROUGH)) {
-            s |= STRIKETHRU;
-        }
-        return s;
     }
 
     /**
@@ -422,55 +363,6 @@ public class Font implements Comparable {
      */
     public int getFamily() {
         return family;
-    }
-
-    // SIZE
-
-    /**
-     * Sets the family using a <CODE>String</CODE> ("Courier", "Helvetica", "Times New Roman", "Symbol" or
-     * "ZapfDingbats").
-     *
-     * @param family A <CODE>String</CODE> representing a certain font-family.
-     */
-    public void setFamily(String family) {
-        this.family = getFamilyIndex(family);
-    }
-
-    /**
-     * Gets the familyname as a String.
-     *
-     * @return the familyname
-     */
-    public String getFamilyname() {
-        String tmp = "unknown";
-        switch (getFamily()) {
-            case Font.COURIER:
-                return FontFactory.COURIER;
-            case Font.HELVETICA:
-                return FontFactory.HELVETICA;
-            case Font.TIMES_ROMAN:
-                return FontFactory.TIMES_ROMAN;
-            case Font.SYMBOL:
-                return FontFactory.SYMBOL;
-            case Font.ZAPFDINGBATS:
-                return FontFactory.ZAPFDINGBATS;
-            default:
-                if (baseFont != null) {
-                    String[][] names = baseFont.getFamilyFontName();
-                    for (String[] name : names) {
-                        if ("0".equals(name[2])) {
-                            return name[3];
-                        }
-                        if ("1033".equals(name[2])) {
-                            tmp = name[3];
-                        }
-                        if ("".equals(name[2])) {
-                            tmp = name[3];
-                        }
-                    }
-                }
-        }
-        return tmp;
     }
 
     /**
@@ -534,19 +426,6 @@ public class Font implements Comparable {
      */
     public void setStyle(int style) {
         this.style = style;
-    }
-
-    /**
-     * Sets the style using a <CODE>String</CODE> containing one of more of the following values: normal, bold, italic,
-     * underline, strike.
-     *
-     * @param style A <CODE>String</CODE> representing a certain style.
-     */
-    public void setStyle(String style) {
-        if (this.style == UNDEFINED) {
-            this.style = NORMAL;
-        }
-        this.style |= getStyleValue(style);
     }
 
     /**
@@ -789,57 +668,6 @@ public class Font implements Comparable {
     public boolean isStandardFont() {
         return (family == UNDEFINED && size == UNDEFINED && style == UNDEFINED
                 && color == null && baseFont == null);
-    }
-
-    /**
-     * Replaces the attributes that are equal to <VAR>null</VAR> with the attributes of a given font.
-     *
-     * @param font the font of a bigger element class
-     * @return a <CODE>Font</CODE>
-     */
-    public Font difference(Font font) {
-        if (font == null) {
-            return this;
-        }
-        // size
-        float dSize = font.size;
-        if (dSize == UNDEFINED) {
-            dSize = this.size;
-        }
-        // style
-        int dStyle = UNDEFINED;
-        int style1 = this.style;
-        int style2 = font.getStyle();
-        if (style1 != UNDEFINED || style2 != UNDEFINED) {
-            if (style1 == UNDEFINED) {
-                style1 = 0;
-            }
-            if (style2 == UNDEFINED) {
-                style2 = 0;
-            }
-            dStyle = style1 | style2;
-        }
-        // color
-        Color dColor = font.color;
-        if (dColor == null) {
-            dColor = this.color;
-        }
-        // family
-        if (font.baseFont != null) {
-            return new Font(font.baseFont, dSize, dStyle, dColor);
-        }
-        if (font.getFamily() != UNDEFINED) {
-            return new Font(font.family, dSize, dStyle, dColor);
-        }
-        if (this.baseFont != null) {
-            if (dStyle == style1) {
-                return new Font(this.baseFont, dSize, dStyle, dColor);
-            } else {
-                return FontFactory.getFont(this.getFamilyname(), dSize, dStyle,
-                        dColor);
-            }
-        }
-        return new Font(this.family, dSize, dStyle, dColor);
     }
 
 }

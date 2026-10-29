@@ -54,7 +54,6 @@ import org.openpdf.text.pdf.HyphenationEvent;
 import org.openpdf.text.pdf.PdfAction;
 import org.openpdf.text.pdf.PdfAnnotation;
 import org.openpdf.text.pdf.PdfContentByte;
-import org.openpdf.text.pdf.draw.DrawInterface;
 import java.awt.Color;
 import java.net.URL;
 import java.util.ArrayList;
@@ -296,59 +295,6 @@ public class Chunk implements Element {
         copyImage.setAbsolutePosition(Float.NaN, Float.NaN);
         setAttribute(IMAGE, new Object[]{copyImage, offsetX,
                 offsetY, Boolean.FALSE});
-    }
-
-    // the attributes are ordered as they appear in the book 'iText in Action'
-
-    /**
-     * Creates a separator Chunk. Note that separator chunks can't be used in combination with tab chunks!
-     *
-     * @param separator the drawInterface to use to draw the separator.
-     * @since 2.1.2
-     */
-    public Chunk(DrawInterface separator) {
-        this(separator, false);
-    }
-
-    /**
-     * Creates a separator Chunk. Note that separator chunks can't be used in combination with tab chunks!
-     *
-     * @param separator the drawInterface to use to draw the separator.
-     * @param vertical  true if this is a vertical separator
-     * @since 2.1.2
-     */
-    public Chunk(DrawInterface separator, boolean vertical) {
-        this(OBJECT_REPLACEMENT_CHARACTER, new Font());
-        setAttribute(SEPARATOR, new Object[]{separator, vertical});
-    }
-
-    /**
-     * Creates a tab Chunk. Note that separator chunks can't be used in combination with tab chunks!
-     *
-     * @param separator   the drawInterface to use to draw the tab.
-     * @param tabPosition an X coordinate that will be used as start position for the next Chunk.
-     * @since 2.1.2
-     */
-    public Chunk(DrawInterface separator, float tabPosition) {
-        this(separator, tabPosition, false);
-    }
-
-    /**
-     * Creates a tab Chunk. Note that separator chunks can't be used in combination with tab chunks!
-     *
-     * @param separator   the drawInterface to use to draw the tab.
-     * @param tabPosition an X coordinate that will be used as start position for the next Chunk.
-     * @param newline     if true, a newline will be added if the tabPosition has already been reached.
-     * @since 2.1.2
-     */
-    public Chunk(DrawInterface separator, float tabPosition, boolean newline) {
-        this(OBJECT_REPLACEMENT_CHARACTER, new Font());
-        if (tabPosition < 0) {
-            throw new IllegalArgumentException(
-                    MessageLocalization.getComposedMessage("a.tab.position.may.not.be.lower.than.0.yours.is.1",
-                            String.valueOf(tabPosition)));
-        }
-        setAttribute(TAB, new Object[]{separator, tabPosition, newline, (float) 0});
     }
 
     /**
@@ -669,17 +615,6 @@ public class Chunk implements Element {
             Color strokeColor) {
         return setAttribute(TEXTRENDERMODE, new Object[]{mode,
                 strokeWidth, strokeColor});
-    }
-
-    /**
-     * Sets the split characters.
-     *
-     * @param splitCharacter the <CODE>SplitCharacter</CODE> interface
-     * @return this <CODE>Chunk</CODE>
-     */
-
-    public Chunk setSplitCharacter(SplitCharacter splitCharacter) {
-        return setAttribute(SPLITCHARACTER, splitCharacter);
     }
 
     /**

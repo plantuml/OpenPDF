@@ -269,27 +269,6 @@ class Type1Font extends BaseFont {
                     }
                 }
             }
-        } else if (afmFile.toLowerCase().endsWith(".pfm")) {
-            try {
-                ByteArrayOutputStream ba = new ByteArrayOutputStream();
-                if (ttfAfm == null) {
-                    rf = new RandomAccessFileOrArray(afmFile, forceRead, Document.plainRandomAccess);
-                } else {
-                    rf = new RandomAccessFileOrArray(ttfAfm);
-                }
-                Pfm2afm.convert(rf, ba);
-                rf.close();
-                rf = new RandomAccessFileOrArray(ba.toByteArray());
-                process(rf);
-            } finally {
-                if (rf != null) {
-                    try {
-                        rf.close();
-                    } catch (Exception e) {
-                        // empty on purpose
-                    }
-                }
-            }
         } else {
             throw new DocumentException(
                     MessageLocalization.getComposedMessage("1.is.not.an.afm.or.pfm.font.file", afmFile));

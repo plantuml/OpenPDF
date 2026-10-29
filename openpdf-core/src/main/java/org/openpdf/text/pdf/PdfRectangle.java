@@ -154,15 +154,6 @@ public class PdfRectangle extends PdfArray {
         this(rectangle.getLeft(), rectangle.getBottom(), rectangle.getRight(), rectangle.getTop(), 0);
     }
 
-    /**
-     * To be used when the array contains 4 float numbers as pdf coordinates like  RECT / BBox
-     *
-     * @param rectangle as a PdfArray
-     */
-    public PdfRectangle(PdfArray rectangle) {
-        this(PdfReader.getNormalizedRectangle(rectangle));
-    }
-
     // methods
 
     /**

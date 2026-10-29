@@ -264,39 +264,6 @@ public class PdfAnnotation extends PdfDictionary {
     }
 
     /**
-     * Creates a screen PdfAnnotation
-     *
-     * @param writer        {@link PdfWriter}
-     * @param rect          dimensions {@link Rectangle}
-     * @param clipTitle     clip title
-     * @param fs            {@link PdfFileSpecification}
-     * @param mimeType      mime type of the file
-     * @param playOnDisplay play on display
-     * @return a screen PdfAnnotation
-     * @throws IOException on error
-     */
-    public static PdfAnnotation createScreen(PdfWriter writer, Rectangle rect, String clipTitle,
-            PdfFileSpecification fs,
-            String mimeType, boolean playOnDisplay) throws IOException {
-        PdfAnnotation ann = new PdfAnnotation(writer, rect);
-        ann.put(PdfName.SUBTYPE, PdfName.SCREEN);
-        ann.put(PdfName.F, new PdfNumber(FLAGS_PRINT));
-        ann.put(PdfName.TYPE, PdfName.ANNOT);
-        ann.setPage();
-        PdfIndirectReference ref = ann.getIndirectReference();
-        PdfAction action = PdfAction.rendition(clipTitle, fs, mimeType, ref);
-        PdfIndirectReference actionRef = writer.addToBody(action).getIndirectReference();
-        // for play on display add trigger event
-        if (playOnDisplay) {
-            PdfDictionary aa = new PdfDictionary();
-            aa.put(new PdfName("PV"), actionRef);
-            ann.put(PdfName.AA, aa);
-        }
-        ann.put(PdfName.A, actionRef);
-        return ann;
-    }
-
-    /**
      * @param writer   {@link PdfWriter}
      * @param rect     dimensions {@link Rectangle}
      * @param title    title for the link
@@ -510,48 +477,6 @@ public class PdfAnnotation extends PdfDictionary {
             outer.add(inner);
         }
         annot.put(PdfName.INKLIST, outer);
-        return annot;
-    }
-
-    /**
-     * Creates a file attachment annotation.
-     *
-     * @param writer      the <CODE>PdfWriter</CODE>
-     * @param rect        the dimensions in the page of the annotation
-     * @param contents    the file description
-     * @param fileStore   an array with the file. If it's <CODE>null</CODE> the file will be read from the disk
-     * @param file        the path to the file. It will only be used if
-     *                    <CODE>fileStore</CODE> is not <CODE>null</CODE>
-     * @param fileDisplay the actual file name stored in the pdf
-     * @return the annotation
-     * @throws IOException on error
-     */
-    public static PdfAnnotation createFileAttachment(PdfWriter writer, Rectangle rect, String contents,
-            byte[] fileStore, String file,
-            String fileDisplay) throws IOException {
-        return createFileAttachment(writer, rect, contents,
-                PdfFileSpecification.fileEmbedded(writer, file, fileDisplay, fileStore));
-    }
-
-    /**
-     * Creates a file attachment annotation
-     *
-     * @param writer   {@link PdfWriter}
-     * @param rect     dimensions {@link Rectangle}
-     * @param contents content for the file
-     * @param fs       {@link PdfFileSpecification}
-     * @return the annotation
-     * @throws IOException on error
-     */
-    public static PdfAnnotation createFileAttachment(PdfWriter writer, Rectangle rect, String contents,
-            PdfFileSpecification fs)
-            throws IOException {
-        PdfAnnotation annot = new PdfAnnotation(writer, rect);
-        annot.put(PdfName.SUBTYPE, PdfName.FILEATTACHMENT);
-        if (contents != null) {
-            annot.put(PdfName.CONTENTS, new PdfString(contents, PdfObject.TEXT_UNICODE));
-        }
-        annot.put(PdfName.FS, fs.getReference());
         return annot;
     }
 
@@ -908,15 +833,6 @@ public class PdfAnnotation extends PdfDictionary {
     }
 
     /**
-     * Sets the layer this annotation belongs to.
-     *
-     * @param layer the layer this annotation belongs to
-     */
-    public void setLayer(PdfOCG layer) {
-        put(PdfName.OC, layer.getRef());
-    }
-
-    /**
      * Sets the name of the annotation. With this name the annotation can be identified among all the annotations on a
      * page (it has to be unique).
      *
@@ -929,173 +845,6 @@ public class PdfAnnotation extends PdfDictionary {
     private void addFKey() {
         if (writer.isPdfA1()) {
             put(PdfName.F, new PdfNumber(FLAGS_PRINT));
-        }
-    }
-
-    /**
-     * This class processes links from imported pages so that they may be active. The following example code reads a
-     * group of files and places them all on the output PDF, four pages in a single page, keeping the links active.
-     * <pre>
-     * String[] files = new String[] {&quot;input1.pdf&quot;, &quot;input2.pdf&quot;};
-     * String outputFile = &quot;output.pdf&quot;;
-     * int firstPage=1;
-     * Document document = new Document();
-     * PdfWriter writer = PdfWriter.getInstance(document, new FileOutputStream(outputFile));
-     * document.setPageSize(PageSize.A4);
-     * float W = PageSize.A4.getWidth() / 2;
-     * float H = PageSize.A4.getHeight() / 2;
-     * document.open();
-     * PdfContentByte cb = writer.getDirectContent();
-     * for (int i = 0; i &lt; files.length; i++) {
-     *    PdfReader currentReader = new PdfReader(files[i]);
-     *    currentReader.consolidateNamedDestinations();
-     *    for (int page = 1; page &lt;= currentReader.getNumberOfPages(); page++) {
-     *        PdfImportedPage importedPage = writer.getImportedPage(currentReader, page);
-     *        float a = 0.5f;
-     *        float e = (page % 2 == 0) ? W : 0;
-     *        float f = (page % 4 == 1 || page % 4 == 2) ? H : 0;
-     *        ArrayList links = currentReader.getLinks(page);
-     *        cb.addTemplate(importedPage, a, 0, 0, a, e, f);
-     *        for (int j = 0; j &lt; links.size(); j++) {
-     *            PdfAnnotation.PdfImportedLink link = (PdfAnnotation.PdfImportedLink)links.get(j);
-     *            if (link.isInternal()) {
-     *                int dPage = link.getDestinationPage();
-     *                int newDestPage = (dPage-1)/4 + firstPage;
-     *                float ee = (dPage % 2 == 0) ? W : 0;
-     *                float ff = (dPage % 4 == 1 || dPage % 4 == 2) ? H : 0;
-     *                link.setDestinationPage(newDestPage);
-     *                link.transformDestination(a, 0, 0, a, ee, ff);
-     *            }
-     *            link.transformRect(a, 0, 0, a, e, f);
-     *            writer.addAnnotation(link.createAnnotation(writer));
-     *        }
-     *        if (page % 4 == 0)
-     *        document.newPage();
-     *    }
-     *    if (i &lt; files.length - 1)
-     *    document.newPage();
-     *    firstPage += (currentReader.getNumberOfPages()+3)/4;
-     * }
-     * document.close();
-     * </pre>
-     */
-    public static class PdfImportedLink {
-
-        float llx, lly, urx, ury;
-        HashMap<PdfName, PdfObject> parameters = new HashMap<>();
-        PdfArray destination;
-        int newPage = 0;
-
-        PdfImportedLink(PdfDictionary annotation) {
-            parameters.putAll(annotation.hashMap);
-            try {
-                destination = (PdfArray) parameters.remove(PdfName.DEST);
-            } catch (ClassCastException ex) {
-                throw new IllegalArgumentException(
-                        MessageLocalization.getComposedMessage(
-                                "you.have.to.consolidate.the.named.destinations.of.your.reader"));
-            }
-            if (destination != null) {
-                destination = new PdfArray(destination);
-            }
-            PdfArray rc = (PdfArray) parameters.remove(PdfName.RECT);
-            llx = rc.getAsNumber(0).floatValue();
-            lly = rc.getAsNumber(1).floatValue();
-            urx = rc.getAsNumber(2).floatValue();
-            ury = rc.getAsNumber(3).floatValue();
-        }
-
-        public boolean isInternal() {
-            return destination != null;
-        }
-
-        public int getDestinationPage() {
-            if (!isInternal()) {
-                return 0;
-            }
-
-            // here destination is something like
-            // [132 0 R, /XYZ, 29.3898, 731.864502, null]
-            PdfIndirectReference ref = destination.getAsIndirectObject(0);
-
-            PRIndirectReference pr = (PRIndirectReference) ref;
-            PdfReader r = pr.getReader();
-            for (int i = 1; i <= r.getNumberOfPages(); i++) {
-                PRIndirectReference pp = r.getPageOrigRef(i);
-                if (pp.getGeneration() == pr.getGeneration() && pp.getNumber() == pr.getNumber()) {
-                    return i;
-                }
-            }
-            throw new IllegalArgumentException(MessageLocalization.getComposedMessage("page.not.found"));
-        }
-
-        public void setDestinationPage(int newPage) {
-            if (!isInternal()) {
-                throw new IllegalArgumentException(
-                        MessageLocalization.getComposedMessage("cannot.change.destination.of.external.link"));
-            }
-            this.newPage = newPage;
-        }
-
-        public void transformDestination(float a, float b, float c, float d, float e, float f) {
-            if (!isInternal()) {
-                throw new IllegalArgumentException(
-                        MessageLocalization.getComposedMessage("cannot.change.destination.of.external.link"));
-            }
-            if (destination.getAsName(1).equals(PdfName.XYZ)) {
-                float x = destination.getAsNumber(2).floatValue();
-                float y = destination.getAsNumber(3).floatValue();
-                float xx = x * a + y * c + e;
-                float yy = x * b + y * d + f;
-                destination.set(2, new PdfNumber(xx));
-                destination.set(3, new PdfNumber(yy));
-            }
-        }
-
-        public void transformRect(float a, float b, float c, float d, float e, float f) {
-            float x = llx * a + lly * c + e;
-            float y = llx * b + lly * d + f;
-            llx = x;
-            lly = y;
-            x = urx * a + ury * c + e;
-            y = urx * b + ury * d + f;
-            urx = x;
-            ury = y;
-        }
-
-        public PdfAnnotation createAnnotation(PdfWriter writer) {
-            PdfAnnotation annotation = new PdfAnnotation(writer, new Rectangle(llx, lly, urx, ury));
-            if (newPage != 0) {
-                PdfIndirectReference ref = writer.getPageReference(newPage);
-                destination.set(0, ref);
-            }
-            if (destination != null) {
-                annotation.put(PdfName.DEST, destination);
-            }
-            annotation.hashMap.putAll(parameters);
-            return annotation;
-        }
-
-        /**
-         * Returns a String representation of the link.
-         *
-         * @return a String representation of the imported link
-         * @since 2.1.6
-         */
-        public String toString() {
-            StringBuilder buf = new StringBuilder("Imported link: location [");
-            buf.append(llx);
-            buf.append(' ');
-            buf.append(lly);
-            buf.append(' ');
-            buf.append(urx);
-            buf.append(' ');
-            buf.append(ury);
-            buf.append("] destination ");
-            buf.append(destination);
-            buf.append(" parameters ");
-            buf.append(parameters);
-            return buf.toString();
         }
     }
 }

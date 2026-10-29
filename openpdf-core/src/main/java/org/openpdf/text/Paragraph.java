@@ -233,37 +233,6 @@ public class Paragraph extends Phrase {
         return Element.PARAGRAPH;
     }
 
-    // methods
-
-    /**
-     * Adds an <CODE>Object</CODE> to the <CODE>Paragraph</CODE>.
-     *
-     * @param o object        the object to add.
-     * @return true is adding the object succeeded
-     */
-    public boolean add(Element o) {
-        if (o instanceof List) {
-            List list = (List) o;
-            list.setIndentationLeft(list.getIndentationLeft() + indentationLeft);
-            list.setIndentationRight(indentationRight);
-            return super.add(list);
-        } else if (o instanceof Image) {
-            super.addSpecial(o);
-            return true;
-        } else if (o instanceof Paragraph) {
-            super.add(o);
-            java.util.List chunks = getChunks();
-            if (!chunks.isEmpty()) {
-                Chunk tmp = ((Chunk) chunks.get(chunks.size() - 1));
-                super.add(new Chunk("\n", tmp.getFont()));
-            } else {
-                super.add(Chunk.NEWLINE);
-            }
-            return true;
-        }
-        return super.add(o);
-    }
-
     // setting the membervariables
 
     /**

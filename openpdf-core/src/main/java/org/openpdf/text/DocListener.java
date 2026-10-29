@@ -136,34 +136,6 @@ public interface DocListener extends ElementListener, AutoCloseable {
      * Sets the page number to 0.
      */
 
-    void resetPageCount(); // [L8]
-
-    /**
-     * Changes the header of this document.
-     *
-     * @param header the new header
-     */
-
-    void setHeader(HeaderFooter header); // [L9]
-
-    /**
-     * Resets the header of this document.
-     */
-
-    void resetHeader(); // [L10]
-
-    /**
-     * Changes the footer of this document.
-     *
-     * @param footer the new footer
-     */
-
-    void setFooter(HeaderFooter footer); // [L11]
-
-    /**
-     * Resets the footer of this document.
-     */
-
-    void resetFooter(); // [L12]
+    void resetPageCount(); // [L12]
 
 }

@@ -86,7 +86,7 @@ class PdfContents extends PdfStream {
             Rectangle page) throws BadPdfFormatException {
         super();
         try {
-            PdfWriter writer = text.getPdfWriter();
+            PdfWriter writer = content.getPdfWriter();
             streamBytes = new ByteArrayOutputStream();
 
             OutputStream out;

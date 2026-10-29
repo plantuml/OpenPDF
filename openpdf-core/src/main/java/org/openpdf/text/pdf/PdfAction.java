@@ -50,7 +50,6 @@
 package org.openpdf.text.pdf;
 
 import org.openpdf.text.error_messages.MessageLocalization;
-import org.openpdf.text.pdf.collection.PdfTargetDictionary;
 import java.io.IOException;
 import java.net.URL;
 import java.util.List;
@@ -308,26 +307,6 @@ public class PdfAction extends PdfDictionary {
     }
 
     /**
-     * Creates a Rendition action
-     *
-     * @param file     the name of the file
-     * @param fs       the PdfSpecification
-     * @param mimeType the mime type
-     * @param ref      the PdfIndirectReference
-     * @return a Media Clip action
-     * @throws IOException thrown when an I/O operation fails
-     */
-    public static PdfAction rendition(String file, PdfFileSpecification fs, String mimeType, PdfIndirectReference ref)
-            throws IOException {
-        PdfAction js = new PdfAction();
-        js.put(PdfName.S, PdfName.RENDITION);
-        js.put(PdfName.R, new PdfRendition(file, fs, mimeType));
-        js.put(new PdfName("OP"), new PdfNumber(0));
-        js.put(new PdfName("AN"), ref);
-        return js;
-    }
-
-    /**
      * Creates a JavaScript action. If the JavaScript is smaller than 50 characters it will be placed as a string,
      * otherwise it will be placed as a compressed stream.
      *
@@ -543,113 +522,6 @@ public class PdfAction extends PdfDictionary {
         }
         if (newWindow) {
             action.put(PdfName.NEWWINDOW, PdfBoolean.PDFTRUE);
-        }
-        return action;
-    }
-
-    /**
-     * Creates a GoToE action to an embedded file.
-     *
-     * @param filename  the root document of the target (null if the target is in the same document)
-     * @param dest      the named destination
-     * @param isName    if true sets the destination as a name, if false sets it as a String
-     * @param newWindow if true, the doc should be opened in a new window
-     * @param target    a path to the target document of this action
-     * @return a GoToE action
-     */
-    public static PdfAction gotoEmbedded(String filename, PdfTargetDictionary target, String dest, boolean isName,
-            boolean newWindow) {
-        if (isName) {
-            return gotoEmbedded(filename, target, new PdfName(dest), newWindow);
-        } else {
-            return gotoEmbedded(filename, target, new PdfString(dest, null), newWindow);
-        }
-    }
-
-    /**
-     * Creates a GoToE action to an embedded file.
-     *
-     * @param filename  the root document of the target (null if the target is in the same document)
-     * @param target    a path to the target document of this action
-     * @param dest      the destination inside the target document, can be of type PdfDestination, PdfName, or
-     *                  PdfString
-     * @param newWindow if true, the destination document should be opened in a new window
-     * @return a GoToE action
-     */
-    public static PdfAction gotoEmbedded(String filename, PdfTargetDictionary target, PdfObject dest,
-            boolean newWindow) {
-        PdfAction action = new PdfAction();
-        action.put(PdfName.S, PdfName.GOTOE);
-        action.put(PdfName.T, target);
-        action.put(PdfName.D, dest);
-        action.put(PdfName.NEWWINDOW, new PdfBoolean(newWindow));
-        if (filename != null) {
-            action.put(PdfName.F, new PdfString(filename));
-        }
-        return action;
-    }
-
-    /**
-     * A set-OCG-state action (PDF 1.5) sets the state of one or more optional content groups.
-     *
-     * @param state      an array consisting of any number of sequences beginning with a <CODE>PdfName</CODE> or
-     *                   <CODE>String</CODE> (ON, OFF, or Toggle) followed by one or more optional content group
-     *                   dictionaries
-     *                   <CODE>PdfLayer</CODE> or a <CODE>PdfIndirectReference</CODE> to a <CODE>PdfLayer</CODE>.<br>
-     *                   The array elements are processed from left to right; each name is applied to the subsequent
-     *                   groups until the next name is encountered:
-     *                   <ul>
-     *                   <li>ON sets the state of subsequent groups to ON</li>
-     *                   <li>OFF sets the state of subsequent groups to OFF</li>
-     *                   <li>Toggle reverses the state of subsequent groups</li>
-     *                   </ul>
-     * @param preserveRB if <CODE>true</CODE>, indicates that radio-button state relationships between optional content
-     *                   groups (as specified by the RBGroups entry in the current configuration dictionary) should be
-     *                   preserved when the states in the
-     *                   <CODE>state</CODE> array are applied. That is, if a group is set to ON (either by ON or
-     *                   Toggle) during processing of the <CODE>state</CODE> array, any other groups belong to the same
-     *                   radio-button group are turned OFF. If a group is set to OFF, there is no effect on other
-     *                   groups.<br> If
-     *                   <CODE>false</CODE>, radio-button state relationships, if any, are ignored
-     * @return the action
-     */
-    public static PdfAction setOCGstate(List<Object> state, boolean preserveRB) {
-        PdfAction action = new PdfAction();
-        action.put(PdfName.S, PdfName.SETOCGSTATE);
-        PdfArray a = new PdfArray();
-        for (Object o : state) {
-            if (o == null) {
-                continue;
-            }
-            if (o instanceof PdfIndirectReference) {
-                a.add((PdfIndirectReference) o);
-            } else if (o instanceof PdfLayer) {
-                a.add(((PdfLayer) o).getRef());
-            } else if (o instanceof PdfName) {
-                a.add((PdfName) o);
-            } else if (o instanceof String) {
-                PdfName name = null;
-                String s = (String) o;
-                if (s.equalsIgnoreCase("on")) {
-                    name = PdfName.ON;
-                } else if (s.equalsIgnoreCase("off")) {
-                    name = PdfName.OFF;
-                } else if (s.equalsIgnoreCase("toggle")) {
-                    name = PdfName.TOGGLE;
-                } else {
-                    throw new IllegalArgumentException(MessageLocalization.getComposedMessage(
-                            "a.string.1.was.passed.in.state.only.on.off.and.toggle.are.allowed", s));
-                }
-                a.add(name);
-            } else {
-                throw new IllegalArgumentException(
-                        MessageLocalization.getComposedMessage("invalid.type.was.passed.in.state.1",
-                                o.getClass().getName()));
-            }
-        }
-        action.put(PdfName.STATE, a);
-        if (!preserveRB) {
-            action.put(PdfName.PRESERVERB, PdfBoolean.PDFFALSE);
         }
         return action;
     }

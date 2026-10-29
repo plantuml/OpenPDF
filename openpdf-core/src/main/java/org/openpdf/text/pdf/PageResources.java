@@ -67,31 +67,6 @@ class PageResources {
     PageResources() {
     }
 
-    void setOriginalResources(PdfDictionary resources, int[] newNamePtr) {
-        if (newNamePtr != null) {
-            namePtr = newNamePtr;
-        }
-        forbiddenNames = new HashMap<>();
-        usedNames = new HashMap<>();
-        if (resources == null) {
-            return;
-        }
-        originalResources = new PdfDictionary();
-        originalResources.merge(resources);
-        for (PdfName key : resources.getKeys()) {
-            PdfObject sub = PdfReader.getPdfObject(resources.get(key));
-            if (sub != null && sub.isDictionary()) {
-                PdfDictionary dic = (PdfDictionary) sub;
-                for (PdfName pdfName : dic.getKeys()) {
-                    forbiddenNames.put(pdfName, null);
-                }
-                PdfDictionary dic2 = new PdfDictionary();
-                dic2.merge(dic);
-                originalResources.put(key, dic2);
-            }
-        }
-    }
-
     PdfName translateName(PdfName name) {
         PdfName translated = name;
         if (forbiddenNames != null) {
@@ -164,6 +139,18 @@ class PageResources {
         return name;
     }
 
+    boolean hasResources() {
+        return (fontDictionary.size() > 0
+                || xObjectDictionary.size() > 0
+                || colorDictionary.size() > 0
+                || patternDictionary.size() > 0
+                || shadingDictionary.size() > 0
+                || extGStateDictionary.size() > 0
+                || propertyDictionary.size() > 0);
+    }
+
+
+
     PdfDictionary getResources() {
         PdfResources resources = new PdfResources();
         if (originalResources != null) {
@@ -178,15 +165,5 @@ class PageResources {
         resources.add(PdfName.EXTGSTATE, extGStateDictionary);
         resources.add(PdfName.PROPERTIES, propertyDictionary);
         return resources;
-    }
-
-    boolean hasResources() {
-        return (fontDictionary.size() > 0
-                || xObjectDictionary.size() > 0
-                || colorDictionary.size() > 0
-                || patternDictionary.size() > 0
-                || shadingDictionary.size() > 0
-                || extGStateDictionary.size() > 0
-                || propertyDictionary.size() > 0);
     }
 }

@@ -143,13 +143,6 @@ public class PdfString extends PdfObject {
      */
     public void toPdf(PdfWriter writer, OutputStream os) throws IOException {
         byte[] b = getBytes();
-        PdfEncryption crypto = null;
-        if (writer != null) {
-            crypto = writer.getEncryption();
-        }
-        if (crypto != null && !crypto.isEmbeddedFilesOnly()) {
-            b = crypto.encryptByteArray(b);
-        }
         if (hexWriting) {
             ByteBuffer buf = new ByteBuffer();
             buf.append('<');
@@ -215,20 +208,6 @@ public class PdfString extends PdfObject {
     void setObjNum(int objNum, int objGen) {
         this.objNum = objNum;
         this.objGen = objGen;
-    }
-
-    /**
-     * Decrypt an encrypted <CODE>PdfString</CODE>
-     */
-    void decrypt(PdfReader reader) {
-        PdfEncryption decrypt = reader.getDecrypt();
-        if (decrypt != null) {
-            originalValue = value;
-            decrypt.setHashKey(objNum, objGen);
-            bytes = PdfEncodings.convertToBytes(value, null);
-            bytes = decrypt.decryptByteArray(bytes);
-            value = PdfEncodings.convertToString(bytes, null);
-        }
     }
 
     /**

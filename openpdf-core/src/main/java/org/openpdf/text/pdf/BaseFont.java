@@ -653,124 +653,6 @@ public abstract class BaseFont {
     }
 
     /**
-     * Creates a new font. This font can be one of the 14 built in types, a Type1 font referred to by an AFM or PFM
-     * file, a TrueType font (simple or collection) or a CJK font from the Adobe Asian Font Pack. TrueType fonts and CJK
-     * fonts can have an optional style modifier appended to the name. These modifiers are: Bold, Italic and BoldItalic.
-     * An example would be "STSong-Light,Bold". Note that this modifiers do not work if the font is embedded. Fonts in
-     * TrueType collections are addressed by index such as "msgothic.ttc,1". This would get the second font (indexes
-     * start at 0), in this case "MS PGothic".
-     * <p>
-     * The fonts may or may not be cached depending on the flag
-     * <CODE>cached</CODE>. If the <CODE>byte</CODE> arrays are present the font
-     * will be read from them instead of the name. A name is still required to identify the font type.
-     * <p>
-     * Besides the common encodings described by name, custom encodings can also be made. These encodings will only work
-     * for the single byte fonts Type1 and TrueType. The encoding string starts with a '#' followed by "simple" or
-     * "full". If "simple" there is a decimal for the first character position and then a list of hex values
-     * representing the Unicode codes that compose that encoding.<br> The "simple" encoding is recommended for TrueType
-     * fonts as the "full" encoding risks not matching the character with the right glyph if not done with care.<br> The
-     * "full" encoding is specially aimed at Type1 fonts where the glyphs have to be described by non standard names
-     * like the Tex math fonts. Each group of three elements compose a code position: the one byte code order in decimal
-     * or as 'x' (x cannot be the space), the name and the Unicode character used to access the glyph. The space must be
-     * assigned to character position 32 otherwise text justification will not work.
-     * <p>
-     * Example for a "simple" encoding that includes the Unicode character space, A, B and ecyrillic:
-     *
-     * <PRE>
-     * &quot;# simple 32 0020 0041 0042 0454&quot;
-     * </PRE>
-     * <p>
-     * Example for a "full" encoding for a Type1 Tex font:
-     *
-     * <PRE>
-     * &quot;# full 'A' nottriangeqlleft 0041 'B' dividemultiply 0042 32 space 0020&quot;
-     * </PRE>
-     *
-     * @param name      the name of the font or its location on file
-     * @param encoding  the encoding to be applied to this font
-     * @param embedded  true if the font is to be embedded in the PDF
-     * @param cached    true if the font comes from the cache or is added to the cache if new, false if the font is
-     *                  always created new
-     * @param ttfAfm    the true type font or the afm in a byte array
-     * @param pfb       the pfb in a byte array
-     * @param noThrow   if true will not throw an exception if the font is not recognized and will return null, if false
-     *                  will throw an exception if the font is not recognized. Note that even if true an exception may
-     *                  be thrown in some circumstances. This parameter is useful for FontFactory that may have to check
-     *                  many invalid font names before finding the right one
-     * @param forceRead in some cases (TrueTypeFont, Type1Font), the full font file will be read and kept in memory if
-     *                  forceRead is true
-     * @return returns a new font. This font may come from the cache but only if cached is true, otherwise it will
-     * always be created new
-     * @throws DocumentException the font is invalid
-     * @throws IOException       the font file could not be read
-     * @since 2.1.5
-     */
-    public static BaseFont createFont(String name, String encoding,
-            boolean embedded, boolean cached, byte[] ttfAfm, byte[] pfb,
-            boolean noThrow, boolean forceRead) throws DocumentException,
-            IOException {
-        String nameBase = getBaseName(name);
-        encoding = normalizeEncoding(encoding);
-        boolean isBuiltinFonts14 = BuiltinFonts14.containsKey(name);
-        boolean isCJKFont = !isBuiltinFonts14 && CJKFont.isCJKFont(
-                nameBase, encoding);
-        if (isBuiltinFonts14 || isCJKFont) {
-            embedded = false;
-        } else if (encoding.equals(IDENTITY_H) || encoding.equals(IDENTITY_V)) {
-            embedded = true;
-        }
-        BaseFont fontFound = null;
-        BaseFont fontBuilt = null;
-        String key = name + "\n" + encoding + "\n" + embedded;
-        if (cached) {
-            fontFound = fontCache.get(key);
-            if (fontFound != null) {
-                return fontFound;
-            }
-        }
-        if (isBuiltinFonts14 || name.toLowerCase().endsWith(".afm")
-                || name.toLowerCase().endsWith(".pfm")) {
-            fontBuilt = new Type1Font(name, encoding, embedded, ttfAfm, pfb,
-                    forceRead);
-            fontBuilt.fastWinansi = encoding.equals(CP1252);
-        } else if (nameBase.toLowerCase().endsWith(".ttf")
-                || nameBase.toLowerCase().endsWith(".otf")
-                || nameBase.toLowerCase().indexOf(".ttc,") > 0) {
-            if (encoding.equals(IDENTITY_H) || encoding.equals(IDENTITY_V)) {
-                fontBuilt = new TrueTypeFontUnicode(name, encoding, embedded,
-                        ttfAfm, forceRead);
-            } else {
-                fontBuilt = new TrueTypeFont(name, encoding, embedded, ttfAfm,
-                        false, forceRead);
-                fontBuilt.fastWinansi = encoding.equals(CP1252);
-            }
-        } else if (isCJKFont) {
-            fontBuilt = new CJKFont(name, encoding, embedded);
-        } else if (noThrow) {
-            return null;
-        } else {
-            throw new DocumentException(MessageLocalization.getComposedMessage(
-                    "font.1.with.2.is.not.recognized", name, encoding));
-        }
-        if (cached) {
-            fontCache.putIfAbsent(key, fontBuilt);
-            return fontCache.get(key);
-        }
-        return fontBuilt;
-    }
-
-    /**
-     * Creates a font based on an existing document font. The created font font may not behave as expected, depending on
-     * the encoding or subset.
-     *
-     * @param fontRef the reference to the document font
-     * @return the font
-     */
-    public static BaseFont createFont(PRIndirectReference fontRef) {
-        return new DocumentFont(fontRef);
-    }
-
-    /**
      * Gets the name without the modifiers Bold, Italic or BoldItalic.
      *
      * @param name the full name of the font
@@ -802,112 +684,6 @@ public abstract class BaseFont {
         } else {
             return enc;
         }
-    }
-
-    /**
-     * Gets the full name of the font. If it is a True Type font each array element will have {Platform ID, Platform
-     * Encoding ID, Language ID, font name}. The interpretation of this values can be found in the Open Type
-     * specification, chapter 2, in the 'name' table.<br> For the other fonts the array has a single element with {"",
-     * "", "", font name}.
-     *
-     * @param name     the name of the font
-     * @param encoding the encoding of the font
-     * @param ttfAfm   the true type font or the afm in a byte array
-     * @return the full name of the font
-     * @throws DocumentException on error
-     * @throws IOException       on error
-     */
-    public static String[][] getFullFontName(String name, String encoding,
-            byte[] ttfAfm) throws DocumentException, IOException {
-        String nameBase = getBaseName(name);
-        BaseFont fontBuilt = null;
-        if (nameBase.toLowerCase().endsWith(".ttf")
-                || nameBase.toLowerCase().endsWith(".otf")
-                || nameBase.toLowerCase().indexOf(".ttc,") > 0) {
-            fontBuilt = new TrueTypeFont(name, CP1252, false, ttfAfm, true,
-                    false);
-        } else {
-            fontBuilt = createFont(name, encoding, false, false, ttfAfm, null);
-        }
-        return fontBuilt.getFullFontName();
-    }
-
-    /**
-     * Gets all the names from the font. Only the required tables are read.
-     *
-     * @param name     the name of the font
-     * @param encoding the encoding of the font
-     * @param ttfAfm   the true type font or the afm in a byte array
-     * @return an array of Object[] built with {getPostscriptFontName(), getFamilyFontName(), getFullFontName()}
-     * @throws DocumentException on error
-     * @throws IOException       on error
-     */
-    public static Object[] getAllFontNames(String name, String encoding,
-            byte[] ttfAfm) throws DocumentException, IOException {
-        String nameBase = getBaseName(name);
-        BaseFont fontBuilt = null;
-        if (nameBase.toLowerCase().endsWith(".ttf")
-                || nameBase.toLowerCase().endsWith(".otf")
-                || nameBase.toLowerCase().indexOf(".ttc,") > 0) {
-            fontBuilt = new TrueTypeFont(name, CP1252, false, ttfAfm, true,
-                    false);
-        } else {
-            fontBuilt = createFont(name, encoding, false, false, ttfAfm, null);
-        }
-        return new Object[]{fontBuilt.getPostscriptFontName(),
-                fontBuilt.getFamilyFontName(), fontBuilt.getFullFontName()};
-    }
-
-    /**
-     * Gets all the entries of the namestable from the font. Only the required tables are read.
-     *
-     * @param name     the name of the font
-     * @param encoding the encoding of the font
-     * @param ttfAfm   the true type font or the afm in a byte array
-     * @return an array of Object[] built with {getPostscriptFontName(), getFamilyFontName(), getFullFontName()}
-     * @throws DocumentException on error
-     * @throws IOException       on error
-     * @since 2.0.8
-     */
-    public static String[][] getAllNameEntries(String name, String encoding,
-            byte[] ttfAfm) throws DocumentException, IOException {
-        String nameBase = getBaseName(name);
-        BaseFont fontBuilt = null;
-        if (nameBase.toLowerCase().endsWith(".ttf")
-                || nameBase.toLowerCase().endsWith(".otf")
-                || nameBase.toLowerCase().indexOf(".ttc,") > 0) {
-            fontBuilt = new TrueTypeFont(name, CP1252, false, ttfAfm, true,
-                    false);
-        } else {
-            fontBuilt = createFont(name, encoding, false, false, ttfAfm, null);
-        }
-        return fontBuilt.getAllNameEntries();
-    }
-
-    /**
-     * Enumerates the postscript font names present inside a True Type Collection.
-     *
-     * @param ttcFile the file name of the font
-     * @return the postscript font names
-     * @throws DocumentException on error
-     * @throws IOException       on error
-     */
-    public static String[] enumerateTTCNames(String ttcFile)
-            throws DocumentException, IOException {
-        return new EnumerateTTC(ttcFile).getNames();
-    }
-
-    /**
-     * Enumerates the postscript font names present inside a True Type Collection.
-     *
-     * @param ttcArray the font as a <CODE>byte</CODE> array
-     * @return the postscript font names
-     * @throws DocumentException on error
-     * @throws IOException       on error
-     */
-    public static String[] enumerateTTCNames(byte[] ttcArray)
-            throws DocumentException, IOException {
-        return new EnumerateTTC(ttcArray).getNames();
     }
 
     private static volatile ResourceProvider resourceProvider;
@@ -985,91 +761,6 @@ public abstract class BaseFont {
             is = ClassLoader.getSystemResourceAsStream(key);
         }
         return is == null ? null : new BufferedInputStream(is);
-    }
-
-    private static void addFont(PRIndirectReference fontRef, IntHashtable hits,
-            ArrayList<Object[]> fonts) {
-        PdfObject obj = PdfReader.getPdfObject(fontRef);
-        if (obj == null || !obj.isDictionary()) {
-            return;
-        }
-        PdfDictionary font = (PdfDictionary) obj;
-        PdfName subtype = font.getAsName(PdfName.SUBTYPE);
-        if (!PdfName.TYPE1.equals(subtype) && !PdfName.TRUETYPE.equals(subtype)) {
-            return;
-        }
-        PdfName name = font.getAsName(PdfName.BASEFONT);
-        fonts.add(new Object[]{PdfName.decodeName(name.toString()), fontRef});
-        hits.put(fontRef.getNumber(), 1);
-    }
-
-    private static void recourseFonts(PdfDictionary page, IntHashtable hits,
-            ArrayList<Object[]> fonts, int level) {
-        ++level;
-        if (level > 50) {
-            return;
-        }
-        PdfDictionary resources = page.getAsDict(PdfName.RESOURCES);
-        if (resources == null) {
-            return;
-        }
-        PdfDictionary font = resources.getAsDict(PdfName.FONT);
-        if (font != null) {
-            for (PdfName pdfName : font.getKeys()) {
-                PdfObject ft = font.get(pdfName);
-                if (ft == null || !ft.isIndirect()) {
-                    continue;
-                }
-                int hit = ((PRIndirectReference) ft).getNumber();
-                if (hits.containsKey(hit)) {
-                    continue;
-                }
-                addFont((PRIndirectReference) ft, hits, fonts);
-            }
-        }
-        PdfDictionary xobj = resources.getAsDict(PdfName.XOBJECT);
-        if (xobj != null) {
-            for (PdfName pdfName : xobj.getKeys()) {
-                recourseFonts(xobj.getAsDict(pdfName), hits, fonts,
-                        level);
-            }
-        }
-    }
-
-    /**
-     * Gets a list of all document fonts. Each element of the
-     * <CODE>ArrayList</CODE> contains a
-     * <CODE>Object[]{String,PRIndirectReference}</CODE> with the font name and
-     * the indirect reference to it.
-     *
-     * @param reader the document where the fonts are to be listed from
-     * @return the list of fonts and references
-     */
-    public static ArrayList<Object[]> getDocumentFonts(PdfReader reader) {
-        IntHashtable hits = new IntHashtable();
-        ArrayList<Object[]> fonts = new ArrayList<>();
-        int npages = reader.getNumberOfPages();
-        for (int k = 1; k <= npages; ++k) {
-            recourseFonts(reader.getPageN(k), hits, fonts, 1);
-        }
-        return fonts;
-    }
-
-    /**
-     * Gets a list of the document fonts in a particular page. Each element of the <CODE>ArrayList</CODE> contains a
-     * <CODE>Object[]{String,PRIndirectReference}</CODE> with the font name and
-     * the indirect reference to it.
-     *
-     * @param reader the document where the fonts are to be listed from
-     * @param page   the page to list the fonts from
-     * @return the list of fonts and references
-     */
-    public static ArrayList<Object[]> getDocumentFonts(PdfReader reader,
-            int page) {
-        IntHashtable hits = new IntHashtable();
-        ArrayList<Object[]> fonts = new ArrayList<>();
-        recourseFonts(reader.getPageN(page), hits, fonts, 1);
-        return fonts;
     }
 
     // ia>
@@ -1880,5 +1571,57 @@ public abstract class BaseFont {
                 throw new DocumentException(e);
             }
         }
+    }
+
+    /**
+     * Creates a new font. In this pruned version of OpenPDF only the 14 built in types and the Type1 fonts referred to
+     * by an AFM file are supported (no TrueType, no CJK).
+     *
+     * @param name      the name of the font or its location on file
+     * @param encoding  the encoding to be applied to this font
+     * @param embedded  true if the font is to be embedded in the PDF
+     * @param cached    true if the font comes from the cache or is added to the cache if new, false if the font is
+     *                  always created new
+     * @param ttfAfm    the afm in a byte array
+     * @param pfb       the pfb in a byte array
+     * @param noThrow   if true will not throw an exception if the font is not recognized and will return null
+     * @param forceRead if true, the full font file will be read and kept in memory
+     * @return returns a new font
+     * @throws DocumentException the font is invalid
+     * @throws IOException       the font file could not be read
+     */
+    public static BaseFont createFont(String name, String encoding,
+            boolean embedded, boolean cached, byte[] ttfAfm, byte[] pfb,
+            boolean noThrow, boolean forceRead) throws DocumentException,
+            IOException {
+        encoding = normalizeEncoding(encoding);
+        boolean isBuiltinFonts14 = BuiltinFonts14.containsKey(name);
+        if (isBuiltinFonts14) {
+            embedded = false;
+        }
+        BaseFont fontFound = null;
+        BaseFont fontBuilt = null;
+        String key = name + "\n" + encoding + "\n" + embedded;
+        if (cached) {
+            fontFound = fontCache.get(key);
+            if (fontFound != null) {
+                return fontFound;
+            }
+        }
+        if (isBuiltinFonts14 || name.toLowerCase().endsWith(".afm")) {
+            fontBuilt = new Type1Font(name, encoding, embedded, ttfAfm, pfb,
+                    forceRead);
+            fontBuilt.fastWinansi = encoding.equals(CP1252);
+        } else if (noThrow) {
+            return null;
+        } else {
+            throw new DocumentException(MessageLocalization.getComposedMessage(
+                    "font.1.with.2.is.not.recognized", name, encoding));
+        }
+        if (cached) {
+            fontCache.putIfAbsent(key, fontBuilt);
+            return fontCache.get(key);
+        }
+        return fontBuilt;
     }
 }

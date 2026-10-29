@@ -87,9 +87,6 @@ public class PdfFormXObject extends PdfStream {
         put(PdfName.RESOURCES, template.getResources());
         put(PdfName.BBOX, new PdfRectangle(template.getBoundingBox()));
         put(PdfName.FORMTYPE, ONE);
-        if (template.getLayer() != null) {
-            put(PdfName.OC, template.getLayer().getRef());
-        }
         if (template.getGroup() != null) {
             put(PdfName.GROUP, template.getGroup());
         }

@@ -376,6 +376,28 @@ public class PdfArray extends PdfObject {
     }
 
     /**
+     * Returns a <CODE>PdfObject</CODE> as a <CODE>PdfIndirectReference</CODE>.
+     * <p>
+     * The object corresponding to the specified index is retrieved. If it is a
+     * <CODE>PdfIndirectReference</CODE>, it is cast down and returned as such.
+     * Otherwise <CODE>null</CODE> is returned.
+     *
+     * @param idx The index of the <CODE>PdfObject</CODE> to be returned
+     * @return the corresponding <CODE>PdfIndirectReference</CODE> object, or
+     * <CODE>null</CODE>
+     */
+    public PdfIndirectReference getAsIndirectObject(int idx) {
+        PdfIndirectReference ref = null;
+        PdfObject orig = getPdfObject(idx); // not getDirect this time.
+        if (orig != null && orig.isIndirect()) {
+            ref = (PdfIndirectReference) orig;
+        }
+        return ref;
+    }
+
+
+
+    /**
      * Returns the <CODE>PdfObject</CODE> with the specified index, resolving a possible indirect reference to a direct
      * object.
      * <p>
@@ -385,8 +407,10 @@ public class PdfArray extends PdfObject {
      * @return A direct <CODE>PdfObject</CODE> or <CODE>null</CODE>
      */
     public PdfObject getDirectObject(int idx) {
-        return PdfReader.getPdfObject(getPdfObject(idx));
+        return getPdfObject(idx);
     }
+
+
 
     // DOWNCASTING GETTERS
     // @author Mark A Storer (2/17/06)
@@ -410,6 +434,8 @@ public class PdfArray extends PdfObject {
         return dict;
     }
 
+
+
     /**
      * Returns a <CODE>PdfObject</CODE> as a <CODE>PdfArray</CODE>, resolving indirect references.
      * <p>
@@ -428,6 +454,8 @@ public class PdfArray extends PdfObject {
         }
         return array;
     }
+
+
 
     /**
      * Returns a <CODE>PdfObject</CODE> as a <CODE>PdfStream</CODE>, resolving indirect references.
@@ -448,6 +476,8 @@ public class PdfArray extends PdfObject {
         return stream;
     }
 
+
+
     /**
      * Returns a <CODE>PdfObject</CODE> as a <CODE>PdfString</CODE>, resolving indirect references.
      * <p>
@@ -466,6 +496,8 @@ public class PdfArray extends PdfObject {
         }
         return string;
     }
+
+
 
     /**
      * Returns a <CODE>PdfObject</CODE> as a <CODE>PdfNumber</CODE>, resolving indirect references.
@@ -486,6 +518,8 @@ public class PdfArray extends PdfObject {
         return number;
     }
 
+
+
     /**
      * Returns a <CODE>PdfObject</CODE> as a <CODE>PdfName</CODE>, resolving indirect references.
      * <p>
@@ -505,6 +539,8 @@ public class PdfArray extends PdfObject {
         return name;
     }
 
+
+
     /**
      * Returns a <CODE>PdfObject</CODE> as a <CODE>PdfBoolean</CODE>, resolving indirect references.
      * <p>
@@ -522,25 +558,5 @@ public class PdfArray extends PdfObject {
             bool = (PdfBoolean) orig;
         }
         return bool;
-    }
-
-    /**
-     * Returns a <CODE>PdfObject</CODE> as a <CODE>PdfIndirectReference</CODE>.
-     * <p>
-     * The object corresponding to the specified index is retrieved. If it is a
-     * <CODE>PdfIndirectReference</CODE>, it is cast down and returned as such.
-     * Otherwise <CODE>null</CODE> is returned.
-     *
-     * @param idx The index of the <CODE>PdfObject</CODE> to be returned
-     * @return the corresponding <CODE>PdfIndirectReference</CODE> object, or
-     * <CODE>null</CODE>
-     */
-    public PdfIndirectReference getAsIndirectObject(int idx) {
-        PdfIndirectReference ref = null;
-        PdfObject orig = getPdfObject(idx); // not getDirect this time.
-        if (orig != null && orig.isIndirect()) {
-            ref = (PdfIndirectReference) orig;
-        }
-        return ref;
     }
 }

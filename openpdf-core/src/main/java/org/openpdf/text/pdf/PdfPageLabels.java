@@ -29,8 +29,6 @@ package org.openpdf.text.pdf;
 
 import org.openpdf.text.ExceptionConverter;
 import org.openpdf.text.error_messages.MessageLocalization;
-import org.openpdf.text.factories.RomanAlphabetFactory;
-import org.openpdf.text.factories.RomanNumberFactory;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -94,131 +92,6 @@ public class PdfPageLabels {
     public PdfPageLabels() {
         map = new HashMap<>();
         addPageLabel(1, PdfPageLabels.DECIMAL_ARABIC_NUMERALS, null, 1);
-    }
-
-    /**
-     * Retrieves the page labels from a PDF as an array of String objects.
-     *
-     * @param reader a PdfReader object that has the page labels you want to retrieve
-     * @return a String array or <code>null</code> if no page labels are present
-     */
-    public static String[] getPageLabels(PdfReader reader) {
-
-        int n = reader.getNumberOfPages();
-
-        PdfDictionary dict = reader.getCatalog();
-        PdfDictionary labels = (PdfDictionary) PdfReader.getPdfObjectRelease(dict.get(PdfName.PAGELABELS));
-        if (labels == null) {
-            return null;
-        }
-
-        String[] labelstrings = new String[n];
-
-        Map<Integer, PdfObject> numberTree = PdfNumberTree.readTree(labels);
-
-        int pagecount = 1;
-        Integer current;
-        char type = 'D';
-        String prefix = "";
-        for (int i = 0; i < n; i++) {
-            current = i;
-            if (numberTree.containsKey(current)) {
-                PdfDictionary d = (PdfDictionary) PdfReader.getPdfObjectRelease(numberTree.get(current));
-                if (d.contains(PdfName.ST)) {
-                    pagecount = ((PdfNumber) d.get(PdfName.ST)).intValue();
-                } else {
-                    pagecount = 1;
-                }
-                if (d.contains(PdfName.P)) {
-                    prefix = ((PdfString) d.get(PdfName.P)).toUnicodeString();
-                } else {
-                    prefix = "";
-                }
-                if (d.contains(PdfName.S)) {
-                    type = d.get(PdfName.S).toString().charAt(1);
-                }
-            }
-            switch (type) {
-                default:
-                    labelstrings[i] = prefix + pagecount;
-                    break;
-                case 'R':
-                    labelstrings[i] = prefix + RomanNumberFactory.getUpperCaseString(pagecount);
-                    break;
-                case 'r':
-                    labelstrings[i] = prefix + RomanNumberFactory.getLowerCaseString(pagecount);
-                    break;
-                case 'A':
-                    labelstrings[i] = prefix + RomanAlphabetFactory.getUpperCaseString(pagecount);
-                    break;
-                case 'a':
-                    labelstrings[i] = prefix + RomanAlphabetFactory.getLowerCaseString(pagecount);
-                    break;
-            }
-            pagecount++;
-        }
-        return labelstrings;
-    }
-
-    /**
-     * Retrieves the page labels from a PDF as an array of {@link PdfPageLabelFormat} objects.
-     *
-     * @param reader a PdfReader object that has the page labels you want to retrieve
-     * @return a PdfPageLabelEntry array, containing an entry for each format change or
-     * <code>null</code> if no page labels are present
-     */
-    public static PdfPageLabelFormat[] getPageLabelFormats(PdfReader reader) {
-        PdfDictionary dict = reader.getCatalog();
-        PdfDictionary labels = (PdfDictionary) PdfReader.getPdfObjectRelease(dict.get(PdfName.PAGELABELS));
-        if (labels == null) {
-            return null;
-        }
-        Map<Integer, PdfObject> numberTree = PdfNumberTree.readTree(labels);
-        Integer[] numbers = new Integer[numberTree.size()];
-        numbers = numberTree.keySet().toArray(numbers);
-        Arrays.sort(numbers);
-        PdfPageLabelFormat[] formats = new PdfPageLabelFormat[numberTree.size()];
-        String prefix;
-        int numberStyle;
-        int pagecount;
-        for (int k = 0; k < numbers.length; ++k) {
-            Integer key = numbers[k];
-            PdfDictionary d = (PdfDictionary) PdfReader.getPdfObjectRelease(numberTree.get(key));
-            if (d.contains(PdfName.ST)) {
-                pagecount = ((PdfNumber) d.get(PdfName.ST)).intValue();
-            } else {
-                pagecount = 1;
-            }
-            if (d.contains(PdfName.P)) {
-                prefix = ((PdfString) d.get(PdfName.P)).toUnicodeString();
-            } else {
-                prefix = "";
-            }
-            if (d.contains(PdfName.S)) {
-                char type = d.get(PdfName.S).toString().charAt(1);
-                switch (type) {
-                    case 'R':
-                        numberStyle = PdfPageLabels.UPPERCASE_ROMAN_NUMERALS;
-                        break;
-                    case 'r':
-                        numberStyle = PdfPageLabels.LOWERCASE_ROMAN_NUMERALS;
-                        break;
-                    case 'A':
-                        numberStyle = PdfPageLabels.UPPERCASE_LETTERS;
-                        break;
-                    case 'a':
-                        numberStyle = PdfPageLabels.LOWERCASE_LETTERS;
-                        break;
-                    default:
-                        numberStyle = PdfPageLabels.DECIMAL_ARABIC_NUMERALS;
-                        break;
-                }
-            } else {
-                numberStyle = PdfPageLabels.EMPTY;
-            }
-            formats[k] = new PdfPageLabelFormat(key + 1, numberStyle, prefix, pagecount);
-        }
-        return formats;
     }
 
     /**
@@ -288,19 +161,6 @@ public class PdfPageLabels {
             return;
         }
         map.remove(page - 1);
-    }
-
-    /**
-     * Gets the page label dictionary to insert into the document.
-     *
-     * @return the page label dictionary
-     */
-    PdfDictionary getDictionary(PdfWriter writer) {
-        try {
-            return PdfNumberTree.writeTree(map, writer);
-        } catch (IOException e) {
-            throw new ExceptionConverter(e);
-        }
     }
 
     public static class PdfPageLabelFormat {

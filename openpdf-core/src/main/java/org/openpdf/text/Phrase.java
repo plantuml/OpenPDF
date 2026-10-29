@@ -339,45 +339,6 @@ public class Phrase extends ArrayList<Element> implements TextElementArray {
     }
 
     /**
-     * Adds a <CODE>Chunk</CODE>, an <CODE>Anchor</CODE> or another <CODE>Phrase</CODE> to this <CODE>Phrase</CODE>.
-     *
-     * @param index   index at which the specified element is to be inserted
-     * @param element an object of type <CODE>Chunk</CODE>, <CODE>Anchor</CODE> or <CODE>Phrase</CODE>
-     * @throws ClassCastException when you try to add something that isn't a <CODE>Chunk</CODE>, <CODE>Anchor</CODE> or
-     *                            <CODE>Phrase</CODE>
-     */
-    @Override
-    public void add(int index, Element element) {
-        if (element == null) {
-            return;
-        }
-        try {
-            if (element.type() == Element.CHUNK) {
-                Chunk chunk = (Chunk) element;
-                if (!font.isStandardFont()) {
-                    chunk.setFont(font.difference(chunk.getFont()));
-                }
-                if (hyphenation != null && chunk.getHyphenation() == null && !chunk.isEmpty()) {
-                    chunk.setHyphenation(hyphenation);
-                }
-                super.add(index, chunk);
-            } else if (element.type() == Element.PHRASE ||
-                    element.type() == Element.ANCHOR ||
-                    element.type() == Element.ANNOTATION ||
-                    element.type() == Element.TABLE || // line added by David Freels
-                    element.type() == Element.YMARK ||
-                    element.type() == Element.MARKED) {
-                super.add(index, element);
-            } else {
-                throw new ClassCastException(String.valueOf(element.type()));
-            }
-        } catch (ClassCastException cce) {
-            throw new ClassCastException(
-                    MessageLocalization.getComposedMessage("insertion.of.illegal.element.1", cce.getMessage()));
-        }
-    }
-
-    /**
      * Adds a <CODE>Chunk</CODE>, <CODE>Anchor</CODE> or another <CODE>Phrase</CODE> to this <CODE>Phrase</CODE>.
      *
      * @param o an object of type <CODE>Chunk</CODE>, <CODE>Anchor</CODE> or <CODE>Phrase</CODE>
@@ -390,50 +351,6 @@ public class Phrase extends ArrayList<Element> implements TextElementArray {
             return false;
         }
         return super.add(new Chunk(o, font));
-    }
-
-    // other methods that change the member variables
-
-    @Override
-    public boolean add(Element element) {
-        if (element == null) {
-            return false;
-        }
-        try {
-            switch (element.type()) {
-                case Element.CHUNK:
-                    return addChunk((Chunk) element);
-                case Element.PHRASE:
-                case Element.PARAGRAPH:
-                    Phrase phrase = (Phrase) element;
-                    boolean success = true;
-                    Element e;
-                    for (Object o1 : phrase) {
-                        e = (Element) o1;
-                        if (e instanceof Chunk) {
-                            success &= addChunk((Chunk) e);
-                        } else {
-                            success &= this.add(e);
-                        }
-                    }
-                    return success;
-                case Element.MARKED:
-                case Element.ANCHOR:
-                case Element.ANNOTATION:
-                case Element.FOOTNOTE:
-                case Element.TABLE: // case added by David Freels
-                case Element.PTABLE: // case added by mr. Karen Vardanyan
-                    // This will only work for PDF!!! Not for RTF/HTML
-                case Element.LIST:
-                case Element.YMARK:
-                    return super.add(element);
-                default:
-                    throw new ClassCastException(String.valueOf(element.type()));
-            }
-        } catch (ClassCastException cce) {
-            throw new ClassCastException(
-                    MessageLocalization.getComposedMessage("insertion.of.illegal.element.1", cce.getMessage()));
-        }
     }
 
     /**
@@ -450,44 +367,6 @@ public class Phrase extends ArrayList<Element> implements TextElementArray {
             this.add(o);
         }
         return true;
-    }
-
-    // methods to retrieve information
-
-    /**
-     * Adds a Chunk.
-     * <p>
-     * This method is a hack to solve a problem I had with phrases that were split between chunks in the wrong place.
-     *
-     * @param chunk a Chunk to add to the Phrase
-     * @return true if adding the Chunk succeeded
-     */
-    protected boolean addChunk(Chunk chunk) {
-        Font f = chunk.getFont();
-        String c = chunk.getContent();
-        if (font != null && !font.isStandardFont()) {
-            f = font.difference(chunk.getFont());
-        }
-        if (size() > 0 && !chunk.hasAttributes()) {
-            try {
-                Chunk previous = (Chunk) get(size() - 1);
-                if (!previous.hasAttributes()
-                        && (f == null
-                        || f.compareTo(previous.getFont()) == 0)
-                        && !"".equals(previous.getContent().trim())
-                        && !"".equals(c.trim())) {
-                    previous.append(c);
-                    return true;
-                }
-            } catch (ClassCastException ignored) {
-            }
-        }
-        Chunk newChunk = new Chunk(c, f);
-        newChunk.setChunkAttributes(chunk.getChunkAttributes());
-        if (hyphenation != null && newChunk.getHyphenation() == null && !newChunk.isEmpty()) {
-            newChunk.setHyphenation(hyphenation);
-        }
-        return super.add(newChunk);
     }
 
     /**

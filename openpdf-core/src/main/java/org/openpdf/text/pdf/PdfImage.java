@@ -89,9 +89,6 @@ public class PdfImage extends PdfStream {
         put(PdfName.SUBTYPE, PdfName.IMAGE);
         put(PdfName.WIDTH, new PdfNumber(image.getWidth()));
         put(PdfName.HEIGHT, new PdfNumber(image.getHeight()));
-        if (image.getLayer() != null) {
-            put(PdfName.OC, image.getLayer().getRef());
-        }
         if (image.isMask() && (image.getBpc() == 1 || image.getBpc() > 0xff)) {
             put(PdfName.IMAGEMASK, PdfBoolean.PDFTRUE);
         }

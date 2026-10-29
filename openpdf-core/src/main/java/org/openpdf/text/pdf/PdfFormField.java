@@ -229,30 +229,6 @@ public class PdfFormField extends PdfAnnotation {
         return field;
     }
 
-    static void mergeResources(PdfDictionary result, PdfDictionary source, PdfStamperImp writer) {
-        PdfDictionary dic = null;
-        PdfDictionary res = null;
-        PdfName target = null;
-        for (PdfName pdfName : mergeTarget) {
-            target = pdfName;
-            PdfDictionary pdfDict = source.getAsDict(target);
-            if ((dic = pdfDict) != null) {
-                if ((res = (PdfDictionary) PdfReader.getPdfObject(result.get(target), result)) == null) {
-                    res = new PdfDictionary();
-                }
-                res.mergeDifferent(dic);
-                result.put(target, res);
-                if (writer != null) {
-                    writer.markUsed(res);
-                }
-            }
-        }
-    }
-
-    static void mergeResources(PdfDictionary result, PdfDictionary source) {
-        mergeResources(result, source, null);
-    }
-
     public static PdfAnnotation shallowDuplicate(PdfAnnotation annot) {
         PdfAnnotation dup;
         if (annot.isForm()) {
@@ -330,10 +306,6 @@ public class PdfFormField extends PdfAnnotation {
         put(PdfName.V, new PdfName(s));
     }
 
-    public void setValue(PdfSignature sig) {
-        put(PdfName.V, sig);
-    }
-
     public void setDefaultValueAsString(String s) {
         put(PdfName.DV, new PdfString(s, PdfObject.TEXT_UNICODE));
     }
@@ -358,27 +330,5 @@ public class PdfFormField extends PdfAnnotation {
 
     public void setQuadding(int v) {
         put(PdfName.Q, new PdfNumber(v));
-    }
-
-    public void setUsed() {
-        used = true;
-        if (parent != null) {
-            put(PdfName.PARENT, parent.getIndirectReference());
-        }
-        if (kids != null) {
-            PdfArray array = new PdfArray();
-            for (PdfFormField kid : kids) {
-                array.add(kid.getIndirectReference());
-            }
-            put(PdfName.KIDS, array);
-        }
-        if (templates == null) {
-            return;
-        }
-        PdfDictionary dic = new PdfDictionary();
-        for (PdfTemplate template : templates.keySet()) {
-            mergeResources(dic, (PdfDictionary) template.getResources());
-        }
-        put(PdfName.DR, dic);
     }
 }

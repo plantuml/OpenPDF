@@ -62,7 +62,6 @@ import org.openpdf.text.ImgJBIG2;
 import org.openpdf.text.Rectangle;
 import org.openpdf.text.error_messages.MessageLocalization;
 import org.openpdf.text.exceptions.IllegalPdfSyntaxException;
-import org.openpdf.text.pdf.internal.PdfAnnotationsImp;
 import org.openpdf.text.pdf.internal.PdfXConformanceImp;
 import java.awt.Color;
 import java.awt.font.GlyphVector;
@@ -192,10 +191,6 @@ public class PdfContentByte {
      * The separator between commands.
      */
     protected int separator = '\n';
-    /**
-     * The list were we save/restore the layer depth
-     */
-    protected List<Integer> layerDepth;
     private int mcDepth = 0;
     private boolean inText = false;
     private int lastFillAlpha = MAX_COLOR_VALUE;
@@ -1440,9 +1435,6 @@ public class PdfContentByte {
     public void addImage(Image image, float a, float b, float c, float d, float e, float f, boolean inlineImage)
             throws DocumentException {
         try {
-            if (image.getLayer() != null) {
-                beginLayer(image.getLayer());
-            }
             if (image.isImgTemplate()) {
                 writer.addDirectImageSimple(image);
                 PdfTemplate template = image.getTemplateData();
@@ -1521,35 +1513,6 @@ public class PdfContentByte {
                 rectangle(image);
                 restoreState();
             }
-            if (image.getLayer() != null) {
-                endLayer();
-            }
-            Annotation annot = image.getAnnotation();
-            if (annot == null) {
-                return;
-            }
-            float[] r = new float[unitRect.length];
-            for (int k = 0; k < unitRect.length; k += 2) {
-                r[k] = a * unitRect[k] + c * unitRect[k + 1] + e;
-                r[k + 1] = b * unitRect[k] + d * unitRect[k + 1] + f;
-            }
-            float llx = r[0];
-            float lly = r[1];
-            float urx = llx;
-            float ury = lly;
-            for (int k = 2; k < r.length; k += 2) {
-                llx = Math.min(llx, r[k]);
-                lly = Math.min(lly, r[k + 1]);
-                urx = Math.max(urx, r[k]);
-                ury = Math.max(ury, r[k + 1]);
-            }
-            annot = new Annotation(annot);
-            annot.setDimensions(llx, lly, urx, ury);
-            PdfAnnotation an = PdfAnnotationsImp.convertAnnotation(writer, annot, new Rectangle(llx, lly, urx, ury));
-            if (an == null) {
-                return;
-            }
-            addAnnotation(an);
         } catch (Exception ee) {
             throw new DocumentException(ee);
         }
@@ -1710,32 +1673,6 @@ public class PdfContentByte {
     }
 
     /**
-     * Shows the glyphs in <CODE>glyphVector</CODE>. Layout info in <CODE>glyphVector</CODE> is ignored
-     *
-     * @param glyphVector containing the glyphs to write
-     */
-    public void showText(GlyphVector glyphVector) {
-        showText(glyphVector, 0, glyphVector.getNumGlyphs());
-    }
-
-    /**
-     * Shows the <CODE>glyphVector</CODE>. Layout info in <CODE>glyphVector</CODE> is ignored
-     *
-     * @param glyphVector containing the glyphs to write
-     * @param beginIndex  index of first glyph
-     * @param endIndex    index of last glyph+1
-     */
-    public void showText(GlyphVector glyphVector, int beginIndex, int endIndex) {
-        if (state.fontDetails == null) {
-            throw new NullPointerException(
-                    MessageLocalization.getComposedMessage("font.and.size.must.be.set.before.writing.any.text"));
-        }
-        byte[] b = state.fontDetails.convertToBytes(glyphVector, beginIndex, endIndex);
-        escapeAndAppendString(b, content);
-        content.append("Tj").append_i(separator);
-    }
-
-    /**
      * Shows the <CODE>text</CODE> kerned.
      *
      * @param text the text to write
@@ -1870,27 +1807,6 @@ public class PdfContentByte {
      */
     int size() {
         return content.size();
-    }
-
-    /**
-     * Adds a named outline to the document.
-     *
-     * @param outline the outline
-     * @param name    the name for the local destination
-     */
-    public void addOutline(PdfOutline outline, String name) {
-        checkWriter();
-        pdf.addOutline(outline, name);
-    }
-
-    /**
-     * Gets the root outline.
-     *
-     * @return the root outline
-     */
-    public PdfOutline getRootOutline() {
-        checkWriter();
-        return pdf.getRootOutline();
     }
 
     /**
@@ -2150,26 +2066,6 @@ public class PdfContentByte {
     PdfTemplate createTemplate(float width, float height, PdfName forcedName) {
         checkWriter();
         PdfTemplate template = new PdfTemplate(writer);
-        template.setWidth(width);
-        template.setHeight(height);
-        writer.addDirectTemplateSimple(template, forcedName);
-        return template;
-    }
-
-    /**
-     * Creates a new appearance to be used with form fields.
-     *
-     * @param width  the bounding box width
-     * @param height the bounding box height
-     * @return the appearance created
-     */
-    public PdfAppearance createAppearance(float width, float height) {
-        return createAppearance(width, height, null);
-    }
-
-    PdfAppearance createAppearance(float width, float height, PdfName forcedName) {
-        checkWriter();
-        PdfAppearance template = new PdfAppearance(writer);
         template.setWidth(width);
         template.setHeight(height);
         writer.addDirectTemplateSimple(template, forcedName);
@@ -2726,39 +2622,6 @@ public class PdfContentByte {
     }
 
     /**
-     * Show an array of glyphs.
-     *
-     * @param glyphs array of glyphs
-     */
-    public void showText(PdfGlyphArray glyphs) {
-        if (state.fontDetails == null) {
-            throw new NullPointerException(
-                    MessageLocalization.getComposedMessage("font.and.size.must.be.set.before.writing.any.text"));
-        }
-        if (glyphs.isEmpty()) {
-            return;
-        }
-        content.append("[");
-        List arrayList = glyphs.getList();
-        boolean lastWasDisplacement = false;
-        for (Object obj : arrayList) {
-            if (obj instanceof PdfGlyphArray.GlyphSubList) { // glyph codes
-                byte[] b = state.fontDetails.convertToBytes((PdfGlyphArray.GlyphSubList) obj);
-                escapeAndAppendString(b, content); // appends escapedString to content
-                lastWasDisplacement = false;
-            } else { // displacement
-                if (lastWasDisplacement) {
-                    content.append(' ');
-                } else {
-                    lastWasDisplacement = true;
-                }
-                content.append((Float) obj);
-            }
-        }
-        content.append("]TJ").append_i(separator);
-    }
-
-    /**
      * Show an array of text.
      *
      * @param text array of text
@@ -2806,33 +2669,6 @@ public class PdfContentByte {
     }
 
     /**
-     * Implements a link to other part of the document. The jump will be made to a local destination with the same name,
-     * that must exist.
-     *
-     * @param name the name for this link
-     * @param llx  the lower left x corner of the activation area
-     * @param lly  the lower left y corner of the activation area
-     * @param urx  the upper right x corner of the activation area
-     * @param ury  the upper right y corner of the activation area
-     */
-    public void localGoto(String name, float llx, float lly, float urx, float ury) {
-        pdf.localGoto(name, llx, lly, urx, ury);
-    }
-
-    /**
-     * The local destination to where a local goto with the same name will jump.
-     *
-     * @param name        the name of this local destination
-     * @param destination the <CODE>PdfDestination</CODE> with the jump coordinates
-     * @return <CODE>true</CODE> if the local destination was added,
-     * <CODE>false</CODE> if a local destination with the same name
-     * already exists
-     */
-    public boolean localDestination(String name, PdfDestination destination) {
-        return pdf.localDestination(name, destination);
-    }
-
-    /**
      * Gets a duplicate of this <CODE>PdfContentByte</CODE>. All the members are copied by reference but the buffer
      * stays different.
      *
@@ -2840,34 +2676,6 @@ public class PdfContentByte {
      */
     public PdfContentByte getDuplicate() {
         return new PdfContentByte(writer);
-    }
-
-    /**
-     * Implements a link to another document.
-     *
-     * @param filename the filename for the remote document
-     * @param name     the name to jump to
-     * @param llx      the lower left x corner of the activation area
-     * @param lly      the lower left y corner of the activation area
-     * @param urx      the upper right x corner of the activation area
-     * @param ury      the upper right y corner of the activation area
-     */
-    public void remoteGoto(String filename, String name, float llx, float lly, float urx, float ury) {
-        pdf.remoteGoto(filename, name, llx, lly, urx, ury);
-    }
-
-    /**
-     * Implements a link to another document.
-     *
-     * @param filename the filename for the remote document
-     * @param page     the page to jump to
-     * @param llx      the lower left x corner of the activation area
-     * @param lly      the lower left y corner of the activation area
-     * @param urx      the upper right x corner of the activation area
-     * @param ury      the upper right y corner of the activation area
-     */
-    public void remoteGoto(String filename, int page, float llx, float lly, float urx, float ury) {
-        pdf.remoteGoto(filename, page, llx, lly, urx, ury);
     }
 
     /**
@@ -2901,19 +2709,6 @@ public class PdfContentByte {
         curveTo(x + r * b, y + h, x, y + h - r * b, x, y + h - r);
         lineTo(x, y + r);
         curveTo(x, y + r * b, x + r * b, y, x + r, y);
-    }
-
-    /**
-     * Implements an action in an area.
-     *
-     * @param action the <CODE>PdfAction</CODE>
-     * @param llx    the lower left x corner of the activation area
-     * @param lly    the lower left y corner of the activation area
-     * @param urx    the upper right x corner of the activation area
-     * @param ury    the upper right y corner of the activation area
-     */
-    public void setAction(PdfAction action, float llx, float lly, float urx, float ury) {
-        pdf.setAction(action, llx, lly, urx, ury);
     }
 
     /**
@@ -3124,169 +2919,6 @@ public class PdfContentByte {
         restoreState();
     }
 
-    /**
-     * Gets a <CODE>Graphics2D</CODE> to write on. The graphics are translated to PDF commands as shapes. No PDF fonts
-     * will appear.
-     *
-     * @param width  the width of the panel
-     * @param height the height of the panel
-     * @return a <CODE>Graphics2D</CODE>
-     */
-    public java.awt.Graphics2D createGraphicsShapes(float width, float height) {
-        return new PdfGraphics2D(this, width, height, null, true, false, 0);
-    }
-
-    /**
-     * Gets a <CODE>Graphics2D</CODE> to print on. The graphics are translated to PDF commands as shapes. No PDF fonts
-     * will appear.
-     *
-     * @param width      the width of the panel
-     * @param height     the height of the panel
-     * @param printerJob a printer job
-     * @return a <CODE>Graphics2D</CODE>
-     */
-    public java.awt.Graphics2D createPrinterGraphicsShapes(float width, float height, PrinterJob printerJob) {
-        return new PdfPrinterGraphics2D(this, width, height, null, true, false, 0, printerJob);
-    }
-
-    /**
-     * Gets a <CODE>Graphics2D</CODE> to write on. The graphics are translated to PDF commands.
-     *
-     * @param width  the width of the panel
-     * @param height the height of the panel
-     * @return a <CODE>Graphics2D</CODE>
-     */
-    public java.awt.Graphics2D createGraphics(float width, float height) {
-        return new PdfGraphics2D(this, width, height, null, false, false, 0);
-    }
-
-    /**
-     * Gets a <CODE>Graphics2D</CODE> to print on. The graphics are translated to PDF commands.
-     *
-     * @param width      width of the panel
-     * @param height     height of the panel
-     * @param printerJob {@link PrinterJob}
-     * @return a <CODE>Graphics2D</CODE>
-     */
-    public java.awt.Graphics2D createPrinterGraphics(float width, float height, PrinterJob printerJob) {
-        return new PdfPrinterGraphics2D(this, width, height, null, false, false, 0, printerJob);
-    }
-
-    /**
-     * Gets a <CODE>Graphics2D</CODE> to write on. The graphics are translated to PDF commands.
-     *
-     * @param width               width of the panel
-     * @param height              height of the panel
-     * @param convertImagesToJPEG if convert images to JPEG
-     * @param quality             quality fo the print
-     * @return a <CODE>Graphics2D</CODE>
-     */
-    public java.awt.Graphics2D createGraphics(float width, float height, boolean convertImagesToJPEG, float quality) {
-        return new PdfGraphics2D(this, width, height, null, false, convertImagesToJPEG, quality);
-    }
-
-    /**
-     * Gets a <CODE>Graphics2D</CODE> to print on. The graphics are translated to PDF commands.
-     *
-     * @param width               width of the panel
-     * @param height              height of the panel
-     * @param convertImagesToJPEG if convert images to JPEG
-     * @param quality             quality fo the print
-     * @param printerJob          {@link PrinterJob}
-     * @return a <CODE>Graphics2D</CODE>
-     */
-    public java.awt.Graphics2D createPrinterGraphics(float width, float height, boolean convertImagesToJPEG,
-            float quality, PrinterJob printerJob) {
-        return new PdfPrinterGraphics2D(this, width, height, null, false, convertImagesToJPEG, quality, printerJob);
-    }
-
-    /**
-     * Gets a <CODE>Graphics2D</CODE> to print on. The graphics are translated to PDF commands.
-     *
-     * @param width               width of the panel
-     * @param height              height of the panel
-     * @param convertImagesToJPEG if convert images to JPEG
-     * @param quality             quality fo the print
-     * @return A Graphics2D object
-     */
-    public java.awt.Graphics2D createGraphicsShapes(float width, float height, boolean convertImagesToJPEG,
-            float quality) {
-        return new PdfGraphics2D(this, width, height, null, true, convertImagesToJPEG, quality);
-    }
-
-    /**
-     * Gets a <CODE>Graphics2D</CODE> to print on. The graphics are translated to PDF commands.
-     *
-     * @param width               width of the panel
-     * @param height              height of the panel
-     * @param convertImagesToJPEG if convert images to JPEG
-     * @param quality             quality fo the print
-     * @param printerJob          {@link PrinterJob}
-     * @return a Graphics2D object
-     */
-    public java.awt.Graphics2D createPrinterGraphicsShapes(float width, float height, boolean convertImagesToJPEG,
-            float quality, PrinterJob printerJob) {
-        return new PdfPrinterGraphics2D(this, width, height, null, true, convertImagesToJPEG, quality, printerJob);
-    }
-
-    /**
-     * Gets a <CODE>Graphics2D</CODE> to write on. The graphics are translated to PDF commands.
-     *
-     * @param width      the width of the panel
-     * @param height     the height of the panel
-     * @param fontMapper the mapping from awt fonts to <CODE>BaseFont</CODE>
-     * @return a <CODE>Graphics2D</CODE>
-     */
-    public java.awt.Graphics2D createGraphics(float width, float height, FontMapper fontMapper) {
-        return new PdfGraphics2D(this, width, height, fontMapper, false, false, 0);
-    }
-
-    /**
-     * Gets a <CODE>Graphics2D</CODE> to print on. The graphics are translated to PDF commands.
-     *
-     * @param width      the width of the panel
-     * @param height     the height of the panel
-     * @param fontMapper the mapping from awt fonts to <CODE>BaseFont</CODE>
-     * @param printerJob a printer job
-     * @return a <CODE>Graphics2D</CODE>
-     */
-    public java.awt.Graphics2D createPrinterGraphics(float width, float height, FontMapper fontMapper,
-            PrinterJob printerJob) {
-        return new PdfPrinterGraphics2D(this, width, height, fontMapper, false, false, 0, printerJob);
-    }
-
-    /**
-     * Gets a <CODE>Graphics2D</CODE> to write on. The graphics are translated to PDF commands.
-     *
-     * @param width               the width of the panel
-     * @param height              the height of the panel
-     * @param fontMapper          the mapping from awt fonts to <CODE>BaseFont</CODE>
-     * @param convertImagesToJPEG converts awt images to jpeg before inserting in pdf
-     * @param quality             the quality of the jpeg
-     * @return a <CODE>Graphics2D</CODE>
-     */
-    public java.awt.Graphics2D createGraphics(float width, float height, FontMapper fontMapper,
-            boolean convertImagesToJPEG, float quality) {
-        return new PdfGraphics2D(this, width, height, fontMapper, false, convertImagesToJPEG, quality);
-    }
-
-    /**
-     * Gets a <CODE>Graphics2D</CODE> to print on. The graphics are translated to PDF commands.
-     *
-     * @param width               the width of the panel
-     * @param height              the height of the panel
-     * @param fontMapper          the mapping from awt fonts to <CODE>BaseFont</CODE>
-     * @param convertImagesToJPEG converts awt images to jpeg before inserting in pdf
-     * @param quality             the quality of the jpeg
-     * @param printerJob          a printer job
-     * @return a <CODE>Graphics2D</CODE>
-     */
-    public java.awt.Graphics2D createPrinterGraphics(float width, float height, FontMapper fontMapper,
-            boolean convertImagesToJPEG, float quality, PrinterJob printerJob) {
-        return new PdfPrinterGraphics2D(this, width, height, fontMapper, false, convertImagesToJPEG, quality,
-                printerJob);
-    }
-
     PageResources getPageResources() {
         return pdf.getPageResources();
     }
@@ -3307,61 +2939,6 @@ public class PdfContentByte {
             state.extGState = gstate;
         }
         content.append(name.getBytes()).append(" gs").append_i(separator);
-    }
-
-    /**
-     * Begins a graphic block whose visibility is controlled by the <CODE>layer</CODE>. Blocks can be nested. Each block
-     * must be terminated by an {@link #endLayer()}.<p> Note that nested layers with {@link PdfLayer#addChild(PdfLayer)}
-     * only require a single call to this method and a single call to {@link #endLayer()}; all the nesting control is
-     * built in.
-     *
-     * @param layer the layer
-     */
-    public void beginLayer(PdfOCG layer) {
-        if ((layer instanceof PdfLayer) && ((PdfLayer) layer).getTitle() != null) {
-            throw new IllegalArgumentException(MessageLocalization.getComposedMessage("a.title.is.not.a.layer"));
-        }
-        if (layerDepth == null) {
-            layerDepth = new ArrayList<>();
-        }
-        if (layer instanceof PdfLayerMembership) {
-            layerDepth.add(1);
-            beginLayer2(layer);
-            return;
-        }
-        int n = 0;
-        PdfLayer la = (PdfLayer) layer;
-        while (la != null) {
-            if (la.getTitle() == null) {
-                beginLayer2(la);
-                ++n;
-            }
-            la = la.getParent();
-        }
-        layerDepth.add(n);
-    }
-
-    private void beginLayer2(PdfOCG layer) {
-        PdfName name = (PdfName) writer.addSimpleProperty(layer, layer.getRef())[0];
-        PageResources prs = getPageResources();
-        name = prs.addProperty(name, layer.getRef());
-        content.append("/OC ").append(name.getBytes()).append(" BDC").append_i(separator);
-    }
-
-    /**
-     * Ends a layer controlled graphic block. It will end the most recent open block.
-     */
-    public void endLayer() {
-        int n = 1;
-        if (layerDepth != null && !layerDepth.isEmpty()) {
-            n = layerDepth.get(layerDepth.size() - 1);
-            layerDepth.remove(layerDepth.size() - 1);
-        } else {
-            throw new IllegalPdfSyntaxException(MessageLocalization.getComposedMessage("unbalanced.layer.operators"));
-        }
-        while (n-- > 0) {
-            content.append("EMC").append_i(separator);
-        }
     }
 
     /**
@@ -3391,58 +2968,6 @@ public class PdfContentByte {
     public void setDefaultColorspace(PdfName name, PdfObject obj) {
         PageResources prs = getPageResources();
         prs.addDefaultColor(name, obj);
-    }
-
-    /**
-     * Begins a marked content sequence. This sequence will be tagged with the structure <CODE>struc</CODE>. The same
-     * structure can be used several times to connect text that belongs to the same logical segment but is in a
-     * different location, like the same paragraph crossing to another page, for example.
-     *
-     * @param struc the tagging structure
-     */
-    public void beginMarkedContentSequence(PdfStructureElement struc) {
-        PdfDictionary dict = new PdfDictionary();
-        beginMarkedContentSequence(struc, dict);
-    }
-
-    public void beginMarkedContentSequence(PdfStructureElement struc, PdfDictionary dict) {
-        PdfObject obj = struc.get(PdfName.K);
-        int mark = pdf.getMarkPoint();
-        if (obj != null) {
-            PdfArray ar = null;
-            if (obj.isNumber()) {
-                ar = new PdfArray();
-                ar.add(obj);
-                struc.put(PdfName.K, ar);
-            } else if (obj.isArray()) {
-                ar = (PdfArray) obj;
-                if (!(ar.getPdfObject(0)).isNumber()) {
-                    throw new IllegalArgumentException(
-                            MessageLocalization.getComposedMessage("the.structure.has.kids"));
-                }
-            } else {
-                throw new IllegalArgumentException(
-                        MessageLocalization.getComposedMessage("unknown.object.at.k.1", obj.getClass().toString()));
-            }
-            PdfDictionary dic = new PdfDictionary(PdfName.MCR);
-            dic.put(PdfName.PG, writer.getCurrentPage());
-            dic.put(PdfName.MCID, new PdfNumber(mark));
-            ar.add(dic);
-            struc.setPageMark(writer.getPageNumber() - 1, -1);
-        } else {
-            struc.setPageMark(writer.getPageNumber() - 1, mark);
-            struc.put(PdfName.PG, writer.getCurrentPage());
-        }
-        pdf.incMarkPoint();
-        mcDepth++;
-        dict.put(PdfName.MCID, new PdfNumber(mark));
-        content.append(struc.get(PdfName.S).getBytes()).append(" ");
-        try {
-            dict.toPdf(writer, content);
-        } catch (IOException e) {
-            throw new ExceptionConverter(e);
-        }
-        content.append(" BDC").append_i(separator);
     }
 
     /**
@@ -3520,9 +3045,6 @@ public class PdfContentByte {
         if (inText) {
             throw new IllegalPdfSyntaxException(
                     MessageLocalization.getComposedMessage("unbalanced.begin.end.text.operators"));
-        }
-        if (layerDepth != null && !layerDepth.isEmpty()) {
-            throw new IllegalPdfSyntaxException(MessageLocalization.getComposedMessage("unbalanced.layer.operators"));
         }
         if (!stateList.isEmpty()) {
             throw new IllegalPdfSyntaxException(

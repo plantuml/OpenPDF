@@ -51,21 +51,17 @@ package org.openpdf.text;
 
 import org.openpdf.text.utils.UrlStreams;
 import org.openpdf.text.error_messages.MessageLocalization;
-import org.openpdf.text.pdf.PRIndirectReference;
 import org.openpdf.text.pdf.PdfArray;
 import org.openpdf.text.pdf.PdfContentByte;
 import org.openpdf.text.pdf.PdfDictionary;
 import org.openpdf.text.pdf.PdfIndirectReference;
 import org.openpdf.text.pdf.PdfName;
 import org.openpdf.text.pdf.PdfNumber;
-import org.openpdf.text.pdf.PdfOCG;
 import org.openpdf.text.pdf.PdfObject;
-import org.openpdf.text.pdf.PdfReader;
 import org.openpdf.text.pdf.PdfStream;
 import org.openpdf.text.pdf.PdfString;
 import org.openpdf.text.pdf.PdfTemplate;
 import org.openpdf.text.pdf.PdfWriter;
-import org.openpdf.text.pdf.codec.CCITTG4Encoder;
 import java.awt.Graphics2D;
 import java.awt.color.ICC_Profile;
 import java.awt.image.BufferedImage;
@@ -103,13 +99,6 @@ import java.util.stream.IntStream;
  */
 
 public abstract class Image extends Rectangle {
-
-    // static final membervariables
-
-    /**
-     * used to detect image base64 data pattern
-     */
-    private static final Pattern imageDataPattern = Pattern.compile("data:(image\\/[a-zA-Z0-9+-]+);.*(base64),(.*)");
 
     /**
      * Image alignment: Default alignment (same as LEFT).
@@ -356,10 +345,6 @@ public abstract class Image extends Rectangle {
      */
     protected Annotation annotation = null;
     /**
-     * Optional Content layer to which we want this Image to belong.
-     */
-    protected PdfOCG layer;
-    /**
      * Holds value of property interpolation.
      */
     protected boolean interpolation;
@@ -492,7 +477,6 @@ public abstract class Image extends Rectangle {
 
         this.widthPercentage = image.widthPercentage;
         this.annotation = image.annotation;
-        this.layer = image.layer;
         this.interpolation = image.interpolation;
         this.originalType = image.originalType;
         this.originalData = image.originalData;
@@ -509,188 +493,6 @@ public abstract class Image extends Rectangle {
         this.imageMask = image.imageMask;
         this.smask = image.smask;
         this.transparency = image.transparency;
-    }
-
-    private enum ImageType {
-        PNG(ImageLoader::getPngImage, ImageLoader::getPngImage, Image::isPng),
-        GIF(ImageLoader::getGifImage, ImageLoader::getGifImage, Image::isGif),
-        JPEG2000(ImageLoader::getJpeg2000Image, ImageLoader::getJpeg2000Image, Image::isJpeg2000),
-        JPEG(ImageLoader::getJpegImage, ImageLoader::getJpegImage, Image::isJpeg),
-        BMP(ImageLoader::getBmpImage, ImageLoader::getBmpImage, Image::isBmp),
-        TIFF(ImageLoader::getTiffImage, ImageLoader::getTiffImage, Image::isTiff),
-        WMF(ImageLoader::getWMFImage, ImageLoader::getWMFImage, Image::isWMF),
-        ;
-        private Function<byte[], Image> byteLoaderFun;
-        private Function<URL, Image> urlLoaderFun;
-        private Function<int[], Boolean> typeCheckerFun;
-
-        ImageType(Function<byte[], Image> loaderFun, Function<URL, Image> urlLoaderFun, Function<int[], Boolean> typeCheckerFun) {
-            this.byteLoaderFun = loaderFun;
-            this.urlLoaderFun = urlLoaderFun;
-            this.typeCheckerFun = typeCheckerFun;
-        }
-
-        private boolean matches(String mediaType) {
-            return mediaType != null && mediaType.toUpperCase().contains(this.name());
-        }
-
-        private boolean matches(int[] imageFirstBytes) {
-            return this.typeCheckerFun.apply(imageFirstBytes);
-        }
-    }
-
-    public static Image getInstance(String mediaType, String base64Data) throws BadElementException {
-        // Decode the base64 string into a byte array
-        byte[] imageBytes = Base64.getDecoder().decode(base64Data);
-
-        Optional<ImageType> o = Arrays.stream(ImageType.values()).filter(t -> t.matches(mediaType)).findFirst();
-        ImageType imageType = o.orElseThrow(() -> new BadElementException("media type not supported: " + mediaType));
-        return imageType.byteLoaderFun.apply(imageBytes);
-    }
-
-    /**
-     * Gets an instance of an Image.
-     *
-     * Security consideration: This method accepts input and processes it without built-in validation,
-     * filtering, or access restrictions. It may load resources such as local files or external URLs,
-     * depending on the input. This can introduce security risks including unauthorized file access,
-     * directory traversal, or server-side request forgery (SSRF).
-     *
-     * It is the responsibility of the calling application to validate and sanitize all input
-     * before passing it to this method, especially when handling user-controlled or external data.
-     * Refer to established secure coding guidelines to ensure safe usage.
-     *
-     * @param url an URL
-     * @return an Image
-     * @throws BadElementException   if error in creating {@link ImgWMF#ImgWMF(byte[]) ImgWMF}
-     * @throws MalformedURLException if bad url
-     * @throws IOException           if image is not recognized
-     */
-    public static Image getInstance(URL url) throws BadElementException, IOException {
-        try (InputStream is = UrlStreams.open(url)) {
-            int[] array = readFirst8Chars(is);
-            Optional<ImageType> o = Arrays.stream(ImageType.values()).filter(t -> t.matches(array)).findFirst();
-            ImageType imageType = o.orElseThrow(() -> new IOException(
-                    url + " is not a recognized image format." + (isJBIG2(array) ? "  JBIG2 support has been removed." : "")));
-
-            Image img = imageType.urlLoaderFun.apply(url);
-            img.setUrl(url);
-            return img;
-        }
-    }
-
-
-    private static class ImageInput {
-        private String mediaType;
-        private String base64Data;
-        private String filename;
-
-        private ImageInput(String input) {
-            Matcher m = imageDataPattern.matcher(input);
-            if (m.find()) {
-                this.mediaType = m.group(1).trim();
-                this.base64Data = m.group(3).trim();
-            } else {
-                this.filename = input;
-            }
-        }
-
-        public Image getInstance() throws IOException {
-            if (filename != null) {
-                return Image.getInstance(Utilities.toURL(filename));
-            } else {
-                return Image.getInstance(mediaType, base64Data);
-            }
-        }
-    }
-
-    /**
-     * Gets an instance of an Image.
-     *
-     * Security consideration: This method accepts input and processes it without built-in validation,
-     * filtering, or access restrictions. It may load resources such as local files or external URLs,
-     * depending on the input. This can introduce security risks including unauthorized file access,
-     * directory traversal, or server-side request forgery (SSRF).
-     *
-     * It is the responsibility of the calling application to validate and sanitize all input
-     * before passing it to this method, especially when handling user-controlled or external data.
-     * Refer to established secure coding guidelines to ensure safe usage.
-     *
-     * @param filename a filename
-     * @return an object of type <CODE>Gif</CODE>,<CODE>Jpeg</CODE> or
-     * <CODE>Png</CODE>
-     * @throws BadElementException if error in creating {@link ImgWMF#ImgWMF(byte[]) ImgWMF}
-     * @throws IOException         if image is not recognized
-     */
-    public static Image getInstance(String filename) throws BadElementException, IOException {
-        return new ImageInput(filename).getInstance();
-    }
-
-    /**
-     * Gets an instance of an Image from the classpath.
-     *
-     * Security consideration: This method accepts input and processes it without built-in validation,
-     * filtering, or access restrictions. It may load resources such as local files or external URLs,
-     * depending on the input. This can introduce security risks including unauthorized file access,
-     * directory traversal, or server-side request forgery (SSRF).
-     *
-     * It is the responsibility of the calling application to validate and sanitize all input
-     * before passing it to this method, especially when handling user-controlled or external data.
-     * Refer to established secure coding guidelines to ensure safe usage.
-     *
-     * @param filename a filename
-     * @return an object of type <CODE>Gif</CODE>,<CODE>Jpeg</CODE> or
-     * <CODE>Png</CODE>
-     * @throws BadElementException if error in creating {@link ImgWMF#ImgWMF(byte[]) ImgWMF}
-     * @throws IOException         if image is not recognized
-     */
-    public static Image getInstanceFromClasspath(String filename) throws BadElementException, IOException {
-        URL url = Image.class.getResource("/" + filename);
-        return getInstance(url);
-    }
-
-    /**
-     * gets an instance of an Image
-     *
-     * @param imgb raw image date
-     * @return an Image object
-     * @throws BadElementException if error in creating {@link ImgWMF#ImgWMF(byte[]) ImgWMF}
-     * @throws IOException         if image is not recognized
-     */
-    public static Image getInstance(byte[] imgb) throws BadElementException, IOException {
-        try (InputStream is = new java.io.ByteArrayInputStream(imgb)) {
-            int[] array = readFirst8Chars(is);
-            Optional<ImageType> o = Arrays.stream(ImageType.values()).filter(t -> t.matches(array)).findFirst();
-            ImageType imageType = o.orElseThrow(() -> new IOException(
-                    MessageLocalization.getComposedMessage("the.byte.array.is.not.a.recognized.imageformat") + (isJBIG2(array) ? "  JBIG2 support has been removed." : "")));
-
-            return imageType.byteLoaderFun.apply(imgb);
-        }
-    }
-
-    /**
-     * Reads the first 8 bytes of an InputStream and returns them as an int array.
-     *
-     * Security consideration: This method accepts input and processes it without built-in validation,
-     * filtering, or access restrictions. It may load resources such as local files or external URLs,
-     * depending on the input. This can introduce security risks including unauthorized file access,
-     * directory traversal, or server-side request forgery (SSRF).
-     *
-     * It is the responsibility of the calling application to validate and sanitize all input
-     * before passing it to this method, especially when handling user-controlled or external data.
-     * Refer to established secure coding guidelines to ensure safe usage.
-     *
-     * @param is
-     * @return
-     * @throws IOException
-     */
-
-    private static int[] readFirst8Chars(InputStream is) throws IOException {
-        int[] array = new int[8];
-        for (Integer i : IntStream.rangeClosed(0, 7).boxed().toList()) {
-            array[i] = is.read();
-        }
-        return array;
     }
 
     /**
@@ -767,35 +569,6 @@ public abstract class Image extends Rectangle {
         }
         Image img = new ImgCCITT(width, height, reverseBits, typeCCITT,
                 parameters, data);
-        img.transparency = transparency;
-        return img;
-    }
-
-    /**
-     * Gets an instance of an Image in raw mode.
-     *
-     * @param width        the width of the image in pixels
-     * @param height       the height of the image in pixels
-     * @param components   1,3 or 4 for GrayScale, RGB and CMYK
-     * @param data         the image data
-     * @param bpc          bits per component
-     * @param transparency transparency information in the Mask format of the image dictionary
-     * @return an object of type <CODE>ImgRaw</CODE>
-     * @throws BadElementException on error
-     */
-    public static Image getInstance(int width, int height, int components,
-            int bpc, byte[] data, int[] transparency)
-            throws BadElementException {
-        if (transparency != null && transparency.length != components * 2) {
-            throw new BadElementException(
-                    MessageLocalization.getComposedMessage("transparency.length.must.be.equal.to.componentes.2"));
-        }
-        if (components == 1 && bpc == 1) {
-            byte[] g4 = CCITTG4Encoder.compress(data, width, height);
-            return Image.getInstance(width, height, false, Image.CCITTG4,
-                    Image.CCITT_BLACKIS1, g4, transparency);
-        }
-        Image img = new ImgRaw(width, height, components, bpc, data);
         img.transparency = transparency;
         return img;
     }
@@ -1166,87 +939,6 @@ public abstract class Image extends Rectangle {
     public static Image getInstance(java.awt.Image image, java.awt.Color color)
             throws BadElementException, IOException {
         return Image.getInstance(image, color, false);
-    }
-
-    /**
-     * Gets an instance of a Image from a java.awt.Image. The image is added as a JPEG with a user defined quality.
-     *
-     * @param writer   the <CODE>PdfWriter</CODE> object to which the image will be added
-     * @param awtImage the <CODE>java.awt.Image</CODE> to convert
-     * @param quality  a float value between <code>0</code> and <code>1</code>
-     * @return an object of type <CODE>PdfTemplate</CODE>
-     * @throws BadElementException on error
-     * @throws IOException         on error
-     */
-    public static Image getInstance(PdfWriter writer, java.awt.Image awtImage, float quality)
-            throws BadElementException, IOException {
-        return getInstance(new PdfContentByte(writer), awtImage, quality);
-    }
-
-    // width and height
-
-    /**
-     * Gets an instance of a Image from a java.awt.Image. The image is added as a JPEG with a user defined quality.
-     *
-     * @param cb       the <CODE>PdfContentByte</CODE> object to which the image will be added
-     * @param awtImage the <CODE>java.awt.Image</CODE> to convert
-     * @param quality  a float value between <code>0</code> and <code>1</code>
-     * @return an object of type <CODE>PdfTemplate</CODE>
-     * @throws BadElementException on error
-     * @throws IOException         on error
-     */
-    public static Image getInstance(PdfContentByte cb, java.awt.Image awtImage, float quality)
-            throws BadElementException, IOException {
-        java.awt.image.PixelGrabber pg = new java.awt.image.PixelGrabber(awtImage,
-                0, 0, -1, -1, true);
-        try {
-            pg.grabPixels();
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt(); // preserve interrupt status
-            throw new IOException(
-                    MessageLocalization.getComposedMessage("java.awt.image.interrupted.waiting.for.pixels"), e);
-        }
-
-        if ((pg.getStatus() & java.awt.image.ImageObserver.ABORT) != 0) {
-            throw new IOException(MessageLocalization.getComposedMessage("java.awt.image.fetch.aborted.or.errored"));
-        }
-        int w = pg.getWidth();
-        int h = pg.getHeight();
-        PdfTemplate tp = cb.createTemplate(w, h);
-        Graphics2D g2d = tp.createGraphics(w, h, true, quality);
-        g2d.drawImage(awtImage, 0, 0, null);
-        g2d.dispose();
-        return getInstance(tp);
-    }
-
-    /**
-     * Reuses an existing image.
-     *
-     * @param ref the reference to the image dictionary
-     * @return the image
-     * @throws BadElementException on error
-     */
-    public static Image getInstance(PRIndirectReference ref) throws BadElementException {
-        PdfDictionary dic = (PdfDictionary) PdfReader.getPdfObjectRelease(ref);
-        int width = ((PdfNumber) PdfReader.getPdfObjectRelease(dic.get(PdfName.WIDTH))).intValue();
-        int height = ((PdfNumber) PdfReader.getPdfObjectRelease(dic.get(PdfName.HEIGHT))).intValue();
-        Image imask = null;
-        PdfObject obj = dic.get(PdfName.SMASK);
-        if (obj != null && obj.isIndirect()) {
-            imask = getInstance((PRIndirectReference) obj);
-        } else {
-            obj = dic.get(PdfName.MASK);
-            if (obj != null && obj.isIndirect()) {
-                PdfObject obj2 = PdfReader.getPdfObjectRelease(obj);
-                if (obj2 instanceof PdfDictionary) {
-                    imask = getInstance((PRIndirectReference) obj);
-                }
-            }
-        }
-        Image img = new ImgRaw(width, height, 1, 1, null);
-        img.imageMask = imask;
-        img.directReference = ref;
-        return img;
     }
 
     /**
@@ -1884,24 +1576,6 @@ public abstract class Image extends Rectangle {
     }
 
     /**
-     * Gets the layer this image belongs to.
-     *
-     * @return the layer this image belongs to or <code>null</code> for no layer defined
-     */
-    public PdfOCG getLayer() {
-        return layer;
-    }
-
-    /**
-     * Sets the layer this image belongs to.
-     *
-     * @param layer the layer this image belongs to
-     */
-    public void setLayer(PdfOCG layer) {
-        this.layer = layer;
-    }
-
-    /**
      * Getter for property interpolation.
      *
      * @return Value of property interpolation.
@@ -2304,5 +1978,43 @@ public abstract class Image extends Rectangle {
 
     private static boolean isWMF(int[] array) {
         return array[0] == 0xD7 && array[1] == 0xCD;
+    }
+
+    /**
+     * Gets an instance of an Image from the bytes of an image file. This pruned version of OpenPDF has no image
+     * decoders (PNG, JPEG, GIF...): only the raw images, see {@link #getInstance(int, int, int, int, byte[])}.
+     *
+     * @param imgb raw image date
+     * @return never
+     * @throws IOException always: image formats are not supported
+     */
+    public static Image getInstance(byte[] imgb) throws BadElementException, IOException {
+        throw new IOException("Image formats are not supported");
+    }
+
+
+
+    /**
+     * Gets an instance of an Image in raw mode.
+     *
+     * @param width        the width of the image in pixels
+     * @param height       the height of the image in pixels
+     * @param components   1,3 or 4 for GrayScale, RGB and CMYK
+     * @param data         the image data
+     * @param bpc          bits per component
+     * @param transparency transparency information in the Mask format of the image dictionary
+     * @return an object of type <CODE>ImgRaw</CODE>
+     * @throws BadElementException on error
+     */
+    public static Image getInstance(int width, int height, int components,
+            int bpc, byte[] data, int[] transparency)
+            throws BadElementException {
+        if (transparency != null && transparency.length != components * 2) {
+            throw new BadElementException(
+                    MessageLocalization.getComposedMessage("transparency.length.must.be.equal.to.componentes.2"));
+        }
+        Image img = new ImgRaw(width, height, components, bpc, data);
+        img.transparency = transparency;
+        return img;
     }
 }

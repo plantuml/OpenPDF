@@ -56,15 +56,10 @@ import org.openpdf.text.DocumentException;
 import org.openpdf.text.ExceptionConverter;
 import org.openpdf.text.Image;
 import org.openpdf.text.ImgJBIG2;
-import org.openpdf.text.ImgWMF;
 import org.openpdf.text.Rectangle;
-import org.openpdf.text.Table;
 import org.openpdf.text.error_messages.MessageLocalization;
-import org.openpdf.text.pdf.collection.PdfCollection;
-import org.openpdf.text.pdf.events.PdfPageEventForwarder;
 import org.openpdf.text.pdf.interfaces.PdfAnnotations;
 import org.openpdf.text.pdf.interfaces.PdfDocumentActions;
-import org.openpdf.text.pdf.interfaces.PdfEncryptionSettings;
 import org.openpdf.text.pdf.interfaces.PdfPageActions;
 import org.openpdf.text.pdf.interfaces.PdfRunDirection;
 import org.openpdf.text.pdf.interfaces.PdfVersion;
@@ -72,7 +67,6 @@ import org.openpdf.text.pdf.interfaces.PdfViewerPreferences;
 import org.openpdf.text.pdf.interfaces.PdfXConformance;
 import org.openpdf.text.pdf.internal.PdfVersionImp;
 import org.openpdf.text.pdf.internal.PdfXConformanceImp;
-import org.openpdf.text.xml.xmp.XmpWriter;
 import java.awt.Color;
 import java.awt.color.ICC_Profile;
 import java.io.ByteArrayOutputStream;
@@ -101,14 +95,9 @@ import java.util.stream.Collectors;
  */
 
 public class PdfWriter extends DocWriter implements
-        PdfViewerPreferences,
-        PdfEncryptionSettings,
         PdfVersion,
-        PdfDocumentActions,
-        PdfPageActions,
         PdfXConformance,
-        PdfRunDirection,
-        PdfAnnotations {
+        PdfRunDirection {
 
     /**
      * The highest generation number possible.
@@ -600,7 +589,6 @@ public class PdfWriter extends DocWriter implements
     /**
      * Contains the business logic for cryptography.
      */
-    protected PdfEncryption crypto;
     /**
      * Holds value of property fullCompression.
      */
@@ -627,8 +615,6 @@ public class PdfWriter extends DocWriter implements
      * The name counter for the form XObjects name.
      */
     protected int formXObjectsCounter = 1;
-    protected HashMap<PdfReader, PdfReaderInstance> importedPages = new HashMap<>();
-    protected PdfReaderInstance currentPdfReaderInstance;
     /**
      * The colors of this document
      */
@@ -654,31 +640,6 @@ public class PdfWriter extends DocWriter implements
     protected HashMap<PdfDictionary, PdfObject[]> documentExtGState = new LinkedHashMap<>();
     protected HashMap<Object, PdfObject[]> documentProperties = new HashMap<>();
     protected boolean tagged = false;
-    protected PdfStructureTreeRoot structureTreeRoot;
-    /**
-     * A hashSet containing all the PdfLayer objects.
-     */
-    protected Set<PdfOCG> documentOCG = new HashSet<>();
-    /**
-     * An array list used to define the order of an OCG tree.
-     */
-    protected List<PdfOCG> documentOCGorder = new ArrayList<>();
-    /**
-     * The OCProperties in a catalog dictionary.
-     */
-    protected PdfOCProperties OCProperties;
-    /**
-     * The RBGroups array in an OCG dictionary
-     */
-    protected PdfArray OCGRadioGroup = new PdfArray();
-
-// [C6] Actions (open and additional)
-    /**
-     * The locked array in an OCG dictionary
-     *
-     * @since 2.1.2
-     */
-    protected PdfArray OCGLocked = new PdfArray();
     /**
      * A group attributes dictionary specifying the attributes of the page's page group for use in the transparent
      * imaging model
@@ -788,37 +749,6 @@ public class PdfWriter extends DocWriter implements
         return writer;
     }
 
-    private static String getNameString(PdfDictionary dic, PdfName key) {
-        PdfObject obj = PdfReader.getPdfObject(dic.get(key));
-        if (obj == null || !obj.isString()) {
-            return null;
-        }
-        return ((PdfString) obj).toUnicodeString();
-    }
-
-    private static void getOCGOrder(PdfArray order, PdfLayer layer) {
-        if (!layer.isOnPanel()) {
-            return;
-        }
-        if (layer.getTitle() == null) {
-            order.add(layer.getRef());
-        }
-        ArrayList<PdfLayer> children = layer.getChildren();
-        if (children == null) {
-            return;
-        }
-        PdfArray kids = new PdfArray();
-        if (layer.getTitle() != null) {
-            kids.add(new PdfString(layer.getTitle(), PdfObject.TEXT_UNICODE));
-        }
-        for (PdfLayer child : children) {
-            getOCGOrder(kids, child);
-        }
-        if (!kids.isEmpty()) {
-            order.add(kids);
-        }
-    }
-
 //  [C10] PDFX Conformance
 
     /**
@@ -839,32 +769,6 @@ public class PdfWriter extends DocWriter implements
      */
     public PdfDictionary getInfo() {
         return pdf.getInfo();
-    }
-
-    /**
-     * Use this method to get the current vertical page position.
-     *
-     * @param ensureNewLine Tells whether a new line shall be enforced. This may cause side effects for elements that do
-     *                      not terminate the lines they've started because those lines will get terminated.
-     * @return The current vertical page position.
-     */
-    public float getVerticalPosition(boolean ensureNewLine) {
-        return pdf.getVerticalPosition(ensureNewLine);
-    }
-
-    /**
-     * Sets the initial leading for the PDF document. This has to be done before the document is opened.
-     *
-     * @param leading the initial leading
-     * @throws DocumentException if you try setting the leading after the document was opened.
-     * @since 2.1.6
-     */
-    public void setInitialLeading(float leading) throws DocumentException {
-        if (open) {
-            throw new DocumentException(MessageLocalization.getComposedMessage(
-                    "you.can.t.set.the.initial.leading.if.the.document.is.already.open"));
-        }
-        pdf.setLeading(leading);
     }
 
     /**
@@ -901,30 +805,6 @@ public class PdfWriter extends DocWriter implements
     void resetContent() {
         directContent.reset();
         directContentUnder.reset();
-    }
-
-    /**
-     * Adds the local destinations to the body of the document.
-     *
-     * @param dest the <CODE>HashMap</CODE> containing the destinations
-     * @throws IOException on error
-     */
-
-    void addLocalDestinations(TreeMap dest) throws IOException {
-        for (Object o : dest.entrySet()) {
-            Map.Entry entry = (Map.Entry) o;
-            String name = (String) entry.getKey();
-            Object[] obj = (Object[]) entry.getValue();
-            PdfDestination destination = (PdfDestination) obj[2];
-            if (obj[1] == null) {
-                obj[1] = getPdfIndirectReference();
-            }
-            if (destination == null) {
-                addToBody(new PdfString("invalid_" + name), (PdfIndirectReference) obj[1]);
-            } else {
-                addToBody(destination, (PdfIndirectReference) obj[1]);
-            }
-        }
     }
 
     /**
@@ -1035,26 +915,6 @@ public class PdfWriter extends DocWriter implements
 
     protected PdfDictionary getCatalog(PdfIndirectReference rootObj) {
         PdfDictionary catalog = pdf.getCatalog(rootObj);
-        // [F12] tagged PDF
-        if (tagged) {
-            try {
-                getStructureTreeRoot().buildTree();
-            } catch (Exception e) {
-                throw new ExceptionConverter(e);
-            }
-            catalog.put(PdfName.STRUCTTREEROOT, structureTreeRoot.getReference());
-            PdfDictionary mi = new PdfDictionary();
-            mi.put(PdfName.MARKED, PdfBoolean.PDFTRUE);
-            if (userProperties) {
-                mi.put(PdfName.USERPROPERTIES, PdfBoolean.PDFTRUE);
-            }
-            catalog.put(PdfName.MARKINFO, mi);
-        }
-        // [F13] OCG
-        if (!documentOCG.isEmpty()) {
-            fillOCProperties(false);
-            catalog.put(PdfName.OCPROPERTIES, OCProperties);
-        }
         return catalog;
     }
     // ENCRYPTION_* = 3 reserved for implementation of the
@@ -1226,27 +1086,6 @@ public class PdfWriter extends DocWriter implements
     }
 
     /**
-     * Sets the <CODE>PdfPageEvent</CODE> for this document.
-     *
-     * @param event the <CODE>PdfPageEvent</CODE> for this document
-     */
-
-    public void setPageEvent(PdfPageEvent event) {
-        if (event == null) {
-            this.pageEvent = null;
-        } else if (this.pageEvent == null) {
-            this.pageEvent = event;
-        } else if (this.pageEvent instanceof PdfPageEventForwarder) {
-            ((PdfPageEventForwarder) this.pageEvent).addPageEvent(event);
-        } else {
-            PdfPageEventForwarder forward = new PdfPageEventForwarder();
-            forward.addPageEvent(this.pageEvent);
-            forward.addPageEvent(event);
-            this.pageEvent = forward;
-        }
-    }
-
-    /**
      * Signals that the <CODE>Document</CODE> has been opened and that
      * <CODE>Elements</CODE> can be added.
      * <p>
@@ -1312,24 +1151,12 @@ public class PdfWriter extends DocWriter implements
                     PdfStream xmp = new PdfStream(xmpMetadata);
                     xmp.put(PdfName.TYPE, PdfName.METADATA);
                     xmp.put(PdfName.SUBTYPE, PdfName.XML);
-                    if (crypto != null && !crypto.isMetadataEncrypted()) {
-                        PdfArray ar = new PdfArray();
-                        ar.add(PdfName.CRYPT);
-                        xmp.put(PdfName.FILTER, ar);
-                    }
                     catalog.put(PdfName.METADATA, body.add(xmp).getIndirectReference());
-                }
-                // [C10] make pdfx conformant
-                if (isPdfX()) {
-                    pdfxConformance.completeInfoDictionary(getInfo());
-                    pdfxConformance.completeExtraCatalog(getExtraCatalog());
                 }
                 // [C11] Output Intents
                 if (extraCatalog != null) {
                     catalog.mergeDifferent(extraCatalog);
                 }
-
-                writeOutlines(catalog, false);
 
                 // add the Catalog to the body
                 PdfIndirectObject indirectCatalog = addToBody(catalog, false);
@@ -1340,11 +1167,7 @@ public class PdfWriter extends DocWriter implements
                 PdfIndirectReference encryption = null;
                 PdfObject fileID;
                 body.flushObjStm();
-                if (crypto != null) {
-                    PdfIndirectObject encryptionObject = addToBody(crypto.getEncryptionDictionary(), false);
-                    encryption = encryptionObject.getIndirectReference();
-                    fileID = crypto.getFileID();
-                } else if (getInfo().contains(PdfName.FILEID)) {
+                if (getInfo().contains(PdfName.FILEID)) {
                     fileID = getInfo().get(PdfName.FILEID);
                 } else {
                     // the same documentId shall be provided to the first version
@@ -1374,19 +1197,10 @@ public class PdfWriter extends DocWriter implements
         // [F4] add the form XObjects
         for (Object[] objs : formXObjects.values()) {
             PdfTemplate template = (PdfTemplate) objs[1];
-            if (template != null && template.getIndirectReference() instanceof PRIndirectReference) {
-                continue;
-            }
             if (template != null && template.getType() == PdfTemplate.TYPE_TEMPLATE) {
                 addToBody(template.getFormXObject(compressionLevel), template.getIndirectReference());
             }
         }
-        // [F5] add all the dependencies in the imported pages
-        for (PdfReaderInstance pdfReaderInstance : importedPages.values()) {
-            currentPdfReaderInstance = pdfReaderInstance;
-            currentPdfReaderInstance.writeAllPages();
-        }
-        currentPdfReaderInstance = null;
         // [F6] add the spotcolors
         for (ColorDetails color : documentColors.values()) {
             addToBody(color.getSpotColor(this), color.getIndirectReference());
@@ -1413,51 +1227,10 @@ public class PdfWriter extends DocWriter implements
         for (Map.Entry<Object, PdfObject[]> entry : documentProperties.entrySet()) {
             Object prop = entry.getKey();
             PdfObject[] obj = entry.getValue();
-            if (prop instanceof PdfLayerMembership layer) {
-                addToBody(layer.getPdfObject(), layer.getRef());
-            } else if ((prop instanceof PdfDictionary) && !(prop instanceof PdfLayer)) {
+            if (prop instanceof PdfDictionary) {
                 addToBody((PdfDictionary) prop, (PdfIndirectReference) obj[1]);
             }
         }
-        // [F13] add the OCG layers
-        for (PdfOCG layer : documentOCG) {
-            addToBody(layer.getPdfObject(), layer.getRef());
-        }
-    }
-
-    /**
-     * Use this method to get the root outline and construct bookmarks.
-     *
-     * @return the root outline
-     */
-
-    public PdfOutline getRootOutline() {
-        return directContent.getRootOutline();
-    }
-
-//  [F2] compression
-
-    /**
-     * Sets the bookmarks. The list structure is defined in {@link SimpleBookmark}.
-     *
-     * @param outlines the bookmarks or <CODE>null</CODE> to remove any
-     */
-    public void setOutlines(List outlines) {
-        newBookmarks = outlines;
-    }
-
-    protected void writeOutlines(PdfDictionary catalog, boolean namedAsNames) throws IOException {
-        if (newBookmarks == null || newBookmarks.isEmpty()) {
-            return;
-        }
-        PdfDictionary top = new PdfDictionary();
-        PdfIndirectReference topRef = getPdfIndirectReference();
-        Object[] kids = SimpleBookmark.iterateOutlines(this, topRef, newBookmarks, namedAsNames);
-        top.put(PdfName.FIRST, (PdfIndirectReference) kids[0]);
-        top.put(PdfName.LAST, (PdfIndirectReference) kids[1]);
-        top.put(PdfName.COUNT, new PdfNumber((Integer) kids[2]));
-        addToBody(top, topRef);
-        catalog.put(PdfName.OUTLINES, topRef);
     }
 
     /**
@@ -1499,225 +1272,6 @@ public class PdfWriter extends DocWriter implements
     }
 
     /**
-     * @see org.openpdf.text.pdf.interfaces.PdfViewerPreferences#setViewerPreferences(int)
-     */
-    public void setViewerPreferences(int preferences) {
-        pdf.setViewerPreferences(preferences);
-    }
-
-    /**
-     * @see org.openpdf.text.pdf.interfaces.PdfViewerPreferences#addViewerPreference(org.openpdf.text.pdf.PdfName,
-     * org.openpdf.text.pdf.PdfObject)
-     */
-    public void addViewerPreference(PdfName key, PdfObject value) {
-        pdf.addViewerPreference(key, value);
-    }
-
-    /**
-     * Use this method to add page labels
-     *
-     * @param pageLabels the page labels
-     */
-    public void setPageLabels(PdfPageLabels pageLabels) {
-        pdf.setPageLabels(pageLabels);
-    }
-
-//  [F4] adding (and releasing) form XObjects
-
-    /**
-     * Adds named destinations in bulk. Valid keys and values of the map can be found in the map that is created by
-     * SimpleNamedDestination.
-     *
-     * @param map         a map with strings as keys for the names, and structured strings as values for the
-     *                    destinations
-     * @param page_offset number of pages that has to be added to the page numbers in the destinations (useful if you
-     *                    use this method in combination with PdfCopy).
-     * @since iText 5.0
-     */
-    public void addNamedDestinations(Map<String, String> map, int page_offset) {
-        Map.Entry<String, String> entry;
-        int page;
-        String dest;
-        PdfDestination destination;
-        for (Map.Entry<String, String> stringStringEntry : map.entrySet()) {
-            entry = stringStringEntry;
-            dest = entry.getValue();
-            page = Integer.parseInt(dest.substring(0, dest.indexOf(" ")));
-            destination = new PdfDestination(dest.substring(dest.indexOf(" ") + 1));
-            addNamedDestination(entry.getKey(), page + page_offset, destination);
-        }
-    }
-
-    /**
-     * Adds one named destination.
-     *
-     * @param name the name for the destination
-     * @param page the page number where you want to jump to
-     * @param dest an explicit destination
-     * @since iText 5.0
-     */
-    public void addNamedDestination(String name, int page, PdfDestination dest) {
-        dest.addPage(getPageReference(page));
-        pdf.localDestination(name, dest);
-    }
-
-    /**
-     * Use this method to add a JavaScript action at the document level. When the document opens, all this JavaScript
-     * runs.
-     *
-     * @param js The JavaScript action
-     */
-    public void addJavaScript(PdfAction js) {
-        pdf.addJavaScript(js);
-    }
-
-    /**
-     * Use this method to add a JavaScript action at the document level. When the document opens, all this JavaScript
-     * runs.
-     *
-     * @param code    the JavaScript code
-     * @param unicode select JavaScript unicode. Note that the internal Acrobat JavaScript engine does not support
-     *                unicode, so this may or may not work for you
-     */
-    public void addJavaScript(String code, boolean unicode) {
-        addJavaScript(PdfAction.javaScript(code, this, unicode));
-    }
-
-//  [F5] adding pages imported form other PDF documents
-
-    /**
-     * Use this method to adds a JavaScript action at the document level. When the document opens, all this JavaScript
-     * runs.
-     *
-     * @param code the JavaScript code
-     */
-    public void addJavaScript(String code) {
-        addJavaScript(code, false);
-    }
-
-    /**
-     * Use this method to add a JavaScript action at the document level. When the document opens, all this JavaScript
-     * runs.
-     *
-     * @param name The name of the JS Action in the name tree
-     * @param js   The JavaScript action
-     */
-    public void addJavaScript(String name, PdfAction js) {
-        pdf.addJavaScript(name, js);
-    }
-
-    /**
-     * Use this method to add a JavaScript action at the document level. When the document opens, all this JavaScript
-     * runs.
-     *
-     * @param name    The name of the JS Action in the name tree
-     * @param code    the JavaScript code
-     * @param unicode select JavaScript unicode. Note that the internal Acrobat JavaScript engine does not support
-     *                unicode, so this may or may not work for you
-     */
-    public void addJavaScript(String name, String code, boolean unicode) {
-        addJavaScript(name, PdfAction.javaScript(code, this, unicode));
-    }
-
-    /**
-     * Use this method to adds a JavaScript action at the document level. When the document opens, all this JavaScript
-     * runs.
-     *
-     * @param name The name of the JS Action in the name tree
-     * @param code the JavaScript code
-     */
-    public void addJavaScript(String name, String code) {
-        addJavaScript(name, code, false);
-    }
-
-    /**
-     * Use this method to add a file attachment at the document level.
-     *
-     * @param description the file description
-     * @param fileStore   an array with the file. If it's <CODE>null</CODE> the file will be read from the disk
-     * @param file        the path to the file. It will only be used if
-     *                    <CODE>fileStore</CODE> is not <CODE>null</CODE>
-     * @param fileDisplay the actual file name stored in the pdf
-     * @throws IOException on error
-     */
-    public void addFileAttachment(String description, byte[] fileStore, String file, String fileDisplay)
-            throws IOException {
-        addFileAttachment(description, PdfFileSpecification.fileEmbedded(this, file, fileDisplay, fileStore));
-    }
-
-    /**
-     * Use this method to add a file attachment at the document level.
-     *
-     * @param description the file description
-     * @param fs          the file specification
-     * @throws IOException thrown when an I/O operation fails
-     */
-    public void addFileAttachment(String description, PdfFileSpecification fs) throws IOException {
-        pdf.addFileAttachment(description, fs);
-    }
-
-    /**
-     * Use this method to add a file attachment at the document level.
-     *
-     * @param fs the file specification
-     * @throws IOException thrown when an I/O operation fails
-     */
-    public void addFileAttachment(PdfFileSpecification fs) throws IOException {
-        addFileAttachment(null, fs);
-    }
-
-//  [F6] spot colors
-
-    /**
-     * @see org.openpdf.text.pdf.interfaces.PdfDocumentActions#setOpenAction(java.lang.String)
-     */
-    public void setOpenAction(String name) {
-        pdf.setOpenAction(name);
-    }
-
-    /**
-     * @see org.openpdf.text.pdf.interfaces.PdfDocumentActions#setOpenAction(org.openpdf.text.pdf.PdfAction)
-     */
-    public void setOpenAction(PdfAction action) {
-        pdf.setOpenAction(action);
-    }
-
-    /**
-     * @see org.openpdf.text.pdf.interfaces.PdfDocumentActions#setAdditionalAction(org.openpdf.text.pdf.PdfName,
-     * org.openpdf.text.pdf.PdfAction)
-     */
-    public void setAdditionalAction(PdfName actionType, PdfAction action) throws DocumentException {
-        if (!(actionType.equals(DOCUMENT_CLOSE) ||
-                actionType.equals(WILL_SAVE) ||
-                actionType.equals(DID_SAVE) ||
-                actionType.equals(WILL_PRINT) ||
-                actionType.equals(DID_PRINT))) {
-            throw new DocumentException(
-                    MessageLocalization.getComposedMessage("invalid.additional.action.type.1", actionType.toString()));
-        }
-        pdf.addAdditionalAction(actionType, action);
-    }
-
-    /**
-     * Use this method to add the Collection dictionary.
-     *
-     * @param collection a dictionary of type PdfCollection
-     */
-    public void setCollection(PdfCollection collection) {
-        setAtLeastPdfVersion(VERSION_2_0);
-        pdf.setCollection(collection);
-    }
-
-//  [F7] document patterns
-
-    /**
-     * @see org.openpdf.text.pdf.interfaces.PdfAnnotations#getAcroForm()
-     */
-    public PdfAcroForm getAcroForm() {
-        return pdf.getAcroForm();
-    }
-
-    /**
      * @see org.openpdf.text.pdf.interfaces.PdfAnnotations#addAnnotation(org.openpdf.text.pdf.PdfAnnotation)
      */
     public void addAnnotation(PdfAnnotation annot) {
@@ -1726,22 +1280,6 @@ public class PdfWriter extends DocWriter implements
 
     void addAnnotation(PdfAnnotation annot, int page) {
         addAnnotation(annot);
-    }
-
-//  [F8] shading patterns
-
-    /**
-     * @see org.openpdf.text.pdf.interfaces.PdfAnnotations#addCalculationOrder(org.openpdf.text.pdf.PdfFormField)
-     */
-    public void addCalculationOrder(PdfFormField annot) {
-        pdf.addCalculationOrder(annot);
-    }
-
-    /**
-     * @see org.openpdf.text.pdf.interfaces.PdfAnnotations#setSigFlags(int)
-     */
-    public void setSigFlags(int f) {
-        pdf.setSigFlags(f);
     }
 
 //  [F9] document shadings
@@ -1753,38 +1291,6 @@ public class PdfWriter extends DocWriter implements
      */
     public void setXmpMetadata(byte[] xmpMetadata) {
         this.xmpMetadata = xmpMetadata;
-    }
-
-    /**
-     * Use this method to set the XMP Metadata for each page.
-     *
-     * @param xmpMetadata The xmpMetadata to set.
-     */
-    public void setPageXmpMetadata(byte[] xmpMetadata) {
-        pdf.setXmpMetadata(xmpMetadata);
-    }
-
-// [F10] extended graphics state (for instance for transparency)
-
-    /**
-     * Use this method to creates XMP Metadata based on the metadata in the PdfDocument.
-     */
-    public void createXmpMetadata() {
-        setXmpMetadata(createXmpMetadataBytes());
-    }
-
-    /**
-     * @return an XmpMetadata byte array
-     */
-    private byte[] createXmpMetadataBytes() {
-        ByteArrayOutputStream baos = new ByteArrayOutputStream();
-        try {
-            XmpWriter xmp = new XmpWriter(baos, pdf.getInfo(), pdfxConformance.getPDFXConformance());
-            xmp.close();
-        } catch (IOException ioe) {
-            ioe.printStackTrace();
-        }
-        return baos.toByteArray();
     }
 
 //  [F11] adding properties (OCG, marked content)
@@ -1807,10 +1313,6 @@ public class PdfWriter extends DocWriter implements
             throw new PdfXConformanceException(
                     MessageLocalization.getComposedMessage(
                             "pdfx.conformance.can.only.be.set.before.opening.the.document"));
-        }
-        if (crypto != null) {
-            throw new PdfXConformanceException(
-                    MessageLocalization.getComposedMessage("a.pdfx.conforming.document.cannot.be.encrypted"));
         }
         if (pdfx == PDFA1A || pdfx == PDFA1B) {
             setPdfVersion(VERSION_1_4);
@@ -1928,83 +1430,6 @@ public class PdfWriter extends DocWriter implements
     }
 
     /**
-     * Use this method to copy the output intent dictionary from another document to this one.
-     *
-     * @param reader         the other document
-     * @param checkExistence <CODE>true</CODE> to just check for the existence of a valid output intent
-     *                       dictionary, <CODE>false</CODE> to insert the dictionary if it exists
-     * @return <CODE>true</CODE> if the output intent dictionary exists, <CODE>false</CODE>
-     * otherwise
-     * @throws IOException on error
-     */
-    public boolean setOutputIntents(PdfReader reader, boolean checkExistence) throws IOException {
-        PdfDictionary catalog = reader.getCatalog();
-        PdfArray outs = catalog.getAsArray(PdfName.OUTPUTINTENTS);
-        if (outs == null) {
-            return false;
-        }
-        if (outs.isEmpty()) {
-            return false;
-        }
-        PdfDictionary out = outs.getAsDict(0);
-        PdfObject obj = PdfReader.getPdfObject(out.get(PdfName.S));
-        if (!PdfName.GTS_PDFX.equals(obj)) {
-            return false;
-        }
-        if (checkExistence) {
-            return true;
-        }
-        PRStream stream = (PRStream) PdfReader.getPdfObject(out.get(PdfName.DESTOUTPUTPROFILE));
-        byte[] destProfile = null;
-        if (stream != null) {
-            destProfile = PdfReader.getStreamBytes(stream);
-        }
-        setOutputIntents(getNameString(out, PdfName.OUTPUTCONDITIONIDENTIFIER),
-                getNameString(out, PdfName.OUTPUTCONDITION),
-                getNameString(out, PdfName.REGISTRYNAME), getNameString(out, PdfName.INFO), destProfile);
-        return true;
-    }
-
-    PdfEncryption getEncryption() {
-        return crypto;
-    }
-
-//  [F13] Optional Content Groups
-
-    /**
-     * @see org.openpdf.text.pdf.interfaces.PdfEncryptionSettings#setEncryption(byte[], byte[], int, int)
-     */
-    public void setEncryption(byte[] userPassword, byte[] ownerPassword, int permissions, int encryptionType)
-            throws DocumentException {
-        if (pdf.isOpen()) {
-            throw new DocumentException(
-                    MessageLocalization.getComposedMessage("encryption.can.only.be.added.before.opening.the.document"));
-        }
-        crypto = new PdfEncryption();
-        crypto.setCryptoMode(encryptionType, 0);
-        crypto.setupAllKeys(userPassword, ownerPassword, permissions);
-    }
-
-    /**
-     * @see org.openpdf.text.pdf.interfaces.PdfEncryptionSettings#setEncryption(java.security.cert.Certificate[], int[],
-     * int)
-     */
-    public void setEncryption(Certificate[] certs, int[] permissions, int encryptionType) throws DocumentException {
-        if (pdf.isOpen()) {
-            throw new DocumentException(
-                    MessageLocalization.getComposedMessage("encryption.can.only.be.added.before.opening.the.document"));
-        }
-        crypto = new PdfEncryption();
-        if (certs != null) {
-            for (int i = 0; i < certs.length; i++) {
-                crypto.addRecipient(certs[i], permissions[i]);
-            }
-        }
-        crypto.setCryptoMode(encryptionType, 0);
-        crypto.getEncryptionDictionary();
-    }
-
-    /**
      * Use this method to find out if 1.5 compression is on.
      *
      * @return the 1.5 compression status
@@ -2048,129 +1473,12 @@ public class PdfWriter extends DocWriter implements
         }
     }
 
-    /**
-     * Adds a <CODE>BaseFont</CODE> to the document but not to the page resources. It is used for templates.
-     *
-     * @param bf the <CODE>BaseFont</CODE> to add
-     * @return an <CODE>Object[]</CODE> where position 0 is a <CODE>PdfName</CODE> and position 1 is an
-     * <CODE>PdfIndirectReference</CODE>
-     */
-
-    FontDetails addSimple(BaseFont bf) {
-        if (bf.getFontType() == BaseFont.FONT_TYPE_DOCUMENT) {
-            return new FontDetails(new PdfName("F" + (fontNumber++)), ((DocumentFont) bf).getIndirectReference(), bf);
-        }
-        FontDetails ret = documentFonts.get(bf);
-        if (ret == null) {
-            PdfXConformanceImp.checkPDFXConformance(this, PdfXConformanceImp.PDFXKEY_FONT, bf);
-            ret = new FontDetails(new PdfName("F" + (fontNumber++)), body.getPdfIndirectReference(), bf);
-            documentFonts.put(bf, ret);
-        }
-        return ret;
-    }
-
     void eliminateFontSubset(PdfDictionary fonts) {
         for (FontDetails ft : documentFonts.values()) {
             if (fonts.get(ft.getFontName()) != null) {
                 ft.setSubset(false);
             }
         }
-    }
-
-    /**
-     * Adds a template to the document but not to the page resources.
-     *
-     * @param template   the template to add
-     * @param forcedName the template name, rather than a generated one. Can be null
-     * @return the <CODE>PdfName</CODE> for this template
-     */
-
-    PdfName addDirectTemplateSimple(PdfTemplate template, PdfName forcedName) {
-        PdfIndirectReference ref = template.getIndirectReference();
-        Object[] obj = formXObjects.get(ref);
-        PdfName name;
-        try {
-            if (obj == null) {
-                if (forcedName == null) {
-                    name = new PdfName("Xf" + formXObjectsCounter);
-                    ++formXObjectsCounter;
-                } else {
-                    name = forcedName;
-                }
-                if (template.getType() == PdfTemplate.TYPE_IMPORTED) {
-                    // If we got here from PdfCopy we'll have to fill importedPages
-                    PdfImportedPage ip = (PdfImportedPage) template;
-                    PdfReader r = ip.getPdfReaderInstance().getReader();
-                    if (!importedPages.containsKey(r)) {
-                        importedPages.put(r, ip.getPdfReaderInstance());
-                    }
-                    template = null;
-                }
-                formXObjects.put(ref, new Object[]{name, template});
-            } else {
-                name = (PdfName) obj[0];
-            }
-        } catch (Exception e) {
-            throw new ExceptionConverter(e);
-        }
-        return name;
-    }
-
-    /**
-     * Use this method to releases the memory used by a template. This method writes the template to the output. The
-     * template can still be added to any content but changes to the template itself won't have any effect.
-     *
-     * @param tp the template to release
-     * @throws IOException on error
-     */
-    public void releaseTemplate(PdfTemplate tp) throws IOException {
-        PdfIndirectReference ref = tp.getIndirectReference();
-        Object[] objs = formXObjects.get(ref);
-        if (objs == null || objs[1] == null) {
-            return;
-        }
-        PdfTemplate template = (PdfTemplate) objs[1];
-        if (template.getIndirectReference() instanceof PRIndirectReference) {
-            return;
-        }
-        if (template.getType() == PdfTemplate.TYPE_TEMPLATE) {
-            addToBody(template.getFormXObject(compressionLevel), template.getIndirectReference());
-            objs[1] = null;
-        }
-    }
-
-    /**
-     * Use this method to get a page from other PDF document. The page can be used as any other PdfTemplate. Note that
-     * calling this method more than once with the same parameters will retrieve the same object.
-     *
-     * @param reader     the PDF document where the page is
-     * @param pageNumber the page number. The first page is 1
-     * @return the template representing the imported page
-     */
-    public PdfImportedPage getImportedPage(PdfReader reader, int pageNumber) {
-        PdfReaderInstance inst = importedPages.get(reader);
-        if (inst == null) {
-            inst = reader.getPdfReaderInstance(this);
-            importedPages.put(reader, inst);
-        }
-        return inst.getImportedPage(pageNumber);
-    }
-
-    /**
-     * Use this method to writes the reader to the document and free the memory used by it. The main use is when
-     * concatenating multiple documents to keep the memory usage restricted to the current appending document.
-     *
-     * @param reader the <CODE>PdfReader</CODE> to free
-     * @throws IOException on error
-     */
-    public void freeReader(PdfReader reader) throws IOException {
-        currentPdfReaderInstance = importedPages.get(reader);
-        if (currentPdfReaderInstance == null) {
-            return;
-        }
-        currentPdfReaderInstance.writeAllPages();
-        currentPdfReaderInstance = null;
-        importedPages.remove(reader);
     }
 
 //  User methods to change aspects of the page
@@ -2186,20 +1494,6 @@ public class PdfWriter extends DocWriter implements
      */
     public long getCurrentDocumentSize() {
         return body.offset() + (long) body.size() * 20L + 0x48;
-    }
-
-    protected int getNewObjectNumber(PdfReader reader, int number, int generation) {
-        if (currentPdfReaderInstance == null && importedPages.get(reader) == null) {
-            importedPages.put(reader, reader.getPdfReaderInstance(this));
-        }
-        currentPdfReaderInstance = importedPages.get(reader);
-        int n = currentPdfReaderInstance.getNewObjectNumber(number, generation);
-        currentPdfReaderInstance = null;
-        return n;
-    }
-
-    RandomAccessFileOrArray getReaderFile(PdfReader reader) {
-        return currentPdfReaderInstance.getReaderFile();
     }
 
     PdfName getColorspaceName() {
@@ -2267,9 +1561,6 @@ public class PdfWriter extends DocWriter implements
 
     PdfObject[] addSimpleProperty(Object prop, PdfIndirectReference refi) {
         if (!documentProperties.containsKey(prop)) {
-            if (prop instanceof PdfOCG) {
-                PdfXConformanceImp.checkPDFXConformance(this, PdfXConformanceImp.PDFXKEY_LAYER, null);
-            }
             documentProperties.put(prop, new PdfObject[]{new PdfName("Pr" + (documentProperties.size() + 1)), refi});
         }
         return documentProperties.get(prop);
@@ -2301,164 +1592,6 @@ public class PdfWriter extends DocWriter implements
      */
     public boolean isTagged() {
         return tagged;
-    }
-
-    /**
-     * Gets the structure tree root. If the document is not marked for tagging it will return <CODE>null</CODE>.
-     *
-     * @return the structure tree root
-     */
-    public PdfStructureTreeRoot getStructureTreeRoot() {
-        if (tagged && structureTreeRoot == null) {
-            structureTreeRoot = new PdfStructureTreeRoot(this);
-        }
-        return structureTreeRoot;
-    }
-
-    /**
-     * Use this method to get the <B>Optional Content Properties Dictionary</B>. Each call fills the dictionary with the
-     * current layer state. It's advisable to only call this method right before close and do any modifications at that
-     * time.
-     *
-     * @return the Optional Content Properties Dictionary
-     */
-    public PdfOCProperties getOCProperties() {
-        fillOCProperties(true);
-        return OCProperties;
-    }
-
-//  [U6] space char ratio
-
-    /**
-     * Use this method to set a collection of optional content groups whose states are intended to follow a "radio
-     * button" paradigm. That is, the state of at most one optional content group in the array should be ON at a time:
-     * if one group is turned ON, all others must be turned OFF.
-     *
-     * @param group the radio group
-     */
-    public void addOCGRadioGroup(List<PdfLayer> group) {
-        PdfArray ar = new PdfArray();
-        for (PdfLayer layer : group) {
-            if (layer.getTitle() == null) {
-                ar.add(layer.getRef());
-            }
-        }
-        if (ar.isEmpty()) {
-            return;
-        }
-        OCGRadioGroup.add(ar);
-    }
-
-    /**
-     * Use this method to lock an optional content group. The state of a locked group cannot be changed through the user
-     * interface of a viewer application. Producers can use this entry to prevent the visibility of content that depends
-     * on these groups from being changed by users.
-     *
-     * @param layer the layer that needs to be added to the array of locked OCGs
-     * @since 2.1.2
-     */
-    public void lockLayer(PdfLayer layer) {
-        OCGLocked.add(layer.getRef());
-    }
-
-    private void addASEvent(PdfName event, PdfName category) {
-        PdfArray arr = new PdfArray();
-        for (PdfOCG o : documentOCG) {
-            PdfLayer layer = (PdfLayer) o;
-            PdfDictionary usage = layer.getAsDict(PdfName.USAGE);
-            if (usage != null && usage.get(category) != null) {
-                arr.add(layer.getRef());
-            }
-        }
-        if (arr.isEmpty()) {
-            return;
-        }
-        PdfDictionary d = (PdfDictionary) OCProperties.get(PdfName.D);
-        PdfArray arras = (PdfArray) d.get(PdfName.AS);
-        if (arras == null) {
-            arras = new PdfArray();
-            d.put(PdfName.AS, arras);
-        }
-        PdfDictionary as = new PdfDictionary();
-        as.put(PdfName.EVENT, event);
-        as.put(PdfName.CATEGORY, new PdfArray(category));
-        as.put(PdfName.OCGS, arr);
-        arras.add(as);
-    }
-
-    /**
-     * @param erase true to erase, false otherwise
-     * @since 2.1.2
-     */
-    protected void fillOCProperties(boolean erase) {
-        if (OCProperties == null) {
-            OCProperties = new PdfOCProperties();
-        }
-        if (erase) {
-            OCProperties.remove(PdfName.OCGS);
-            OCProperties.remove(PdfName.D);
-        }
-        if (OCProperties.get(PdfName.OCGS) == null) {
-            PdfArray gr = new PdfArray();
-            for (PdfOCG o : documentOCG) {
-                PdfLayer layer = (PdfLayer) o;
-                gr.add(layer.getRef());
-            }
-            OCProperties.put(PdfName.OCGS, gr);
-        }
-        if (OCProperties.get(PdfName.D) != null) {
-            return;
-        }
-
-        List<PdfOCG> docOrder = documentOCGorder.stream()
-                .filter(pdfOCG -> ((PdfLayer) pdfOCG).getParent() == null)
-                .collect(Collectors.toList());
-
-        PdfArray order = new PdfArray();
-        for (PdfOCG o1 : docOrder) {
-            PdfLayer layer = (PdfLayer) o1;
-            getOCGOrder(order, layer);
-        }
-        PdfDictionary d = new PdfDictionary();
-        OCProperties.put(PdfName.D, d);
-        d.put(PdfName.ORDER, order);
-        PdfArray gr = new PdfArray();
-        for (PdfOCG o : documentOCG) {
-            PdfLayer layer = (PdfLayer) o;
-            if (!layer.isOn()) {
-                gr.add(layer.getRef());
-            }
-        }
-        if (!gr.isEmpty()) {
-            d.put(PdfName.OFF, gr);
-        }
-        if (OCGRadioGroup != null && !OCGRadioGroup.isEmpty()) {
-            d.put(PdfName.RBGROUPS, OCGRadioGroup);
-        }
-        if (OCGLocked != null && !OCGLocked.isEmpty()) {
-            d.put(PdfName.LOCKED, OCGLocked);
-        }
-        addASEvent(PdfName.VIEW, PdfName.ZOOM);
-        addASEvent(PdfName.VIEW, PdfName.VIEW);
-        addASEvent(PdfName.PRINT, PdfName.PRINT);
-        addASEvent(PdfName.EXPORT, PdfName.EXPORT);
-        d.put(PdfName.LISTMODE, PdfName.VISIBLEPAGES);
-    }
-
-    void registerLayer(PdfOCG layer) {
-        PdfXConformanceImp.checkPDFXConformance(this, PdfXConformanceImp.PDFXKEY_LAYER, null);
-        if (layer instanceof PdfLayer la) {
-            if (la.getTitle() == null) {
-                if (!documentOCG.contains(layer)) {
-                    documentOCG.add(layer);
-                    documentOCGorder.add(layer);
-                }
-            } else {
-                documentOCGorder.add(layer);
-            }
-        } else {
-            throw new IllegalArgumentException(MessageLocalization.getComposedMessage("only.pdflayer.is.accepted"));
-        }
     }
 
 //  [U7] run direction (doesn't actually do anything)
@@ -2523,46 +1656,6 @@ public class PdfWriter extends DocWriter implements
             return;
         }
         pdf.setPageEmpty(pageEmpty);
-    }
-
-    /**
-     * @see org.openpdf.text.pdf.interfaces.PdfPageActions#setPageAction(org.openpdf.text.pdf.PdfName,
-     * org.openpdf.text.pdf.PdfAction)
-     */
-    public void setPageAction(PdfName actionType, PdfAction action) throws DocumentException {
-        if (!actionType.equals(PAGE_OPEN) && !actionType.equals(PAGE_CLOSE)) {
-            throw new DocumentException(
-                    MessageLocalization.getComposedMessage("invalid.page.additional.action.type.1",
-                            actionType.toString()));
-        }
-        pdf.setPageAction(actionType, action);
-    }
-
-//  [U8] user units
-
-    /**
-     * @see org.openpdf.text.pdf.interfaces.PdfPageActions#setDuration(int)
-     */
-    public void setDuration(int seconds) {
-        pdf.setDuration(seconds);
-    }
-
-    /**
-     * @see org.openpdf.text.pdf.interfaces.PdfPageActions#setTransition(org.openpdf.text.pdf.PdfTransition)
-     */
-    public void setTransition(PdfTransition transition) {
-        pdf.setTransition(transition);
-    }
-
-    /**
-     * Use this method to set the thumbnail image for the current page.
-     *
-     * @param image the image
-     * @throws PdfException      on error
-     * @throws DocumentException or error
-     */
-    public void setThumbnail(Image image) throws DocumentException {
-        pdf.setThumbnail(image);
     }
 
 // Miscellaneous topics
@@ -2743,122 +1836,6 @@ public class PdfWriter extends DocWriter implements
     }
 
     /**
-     * Use this method to get the strictImageSequence status.
-     *
-     * @return value of property strictImageSequence
-     */
-    public boolean isStrictImageSequence() {
-        return pdf.isStrictImageSequence();
-    }
-
-    /**
-     * Use this method to set the image sequence, so that it follows the text in strict order (or not).
-     *
-     * @param strictImageSequence new value of property strictImageSequence
-     */
-    public void setStrictImageSequence(boolean strictImageSequence) {
-        pdf.setStrictImageSequence(strictImageSequence);
-    }
-
-    /**
-     * Use this method to clear text wrapping around images (if applicable).
-     *
-     * @throws DocumentException on error
-     */
-    public void clearTextWrap() throws DocumentException {
-        pdf.clearTextWrap();
-    }
-
-    /**
-     * Use this method to adds an image to the document but not to the page resources. It is used with templates and
-     * <CODE>Document.add(Image)</CODE>. Use this method only if you know what you're doing!
-     *
-     * @param image the <CODE>Image</CODE> to add
-     * @return the name of the image added
-     * @throws PdfException      on error
-     * @throws DocumentException on error
-     */
-    public PdfName addDirectImageSimple(Image image) throws DocumentException {
-        return addDirectImageSimple(image, null);
-    }
-
-    /**
-     * Adds an image to the document but not to the page resources. It is used with templates and
-     * <CODE>Document.add(Image)</CODE>. Use this method only if you know what you're doing!
-     *
-     * @param image    the <CODE>Image</CODE> to add
-     * @param fixedRef the reference to used. It may be <CODE>null</CODE>, a <CODE>PdfIndirectReference</CODE> or a
-     *                 <CODE>PRIndirectReference</CODE>.
-     * @return the name of the image added
-     * @throws PdfException      on error
-     * @throws DocumentException on error
-     */
-    public PdfName addDirectImageSimple(Image image, PdfIndirectReference fixedRef) throws DocumentException {
-        PdfName name;
-        // if the images is already added, just retrieve the name
-        if (images.containsKey(image.getMySerialId())) {
-            name = images.get(image.getMySerialId());
-        } else {
-            // if it's a new image, add it to the document
-            if (image.isImgTemplate()) {
-                name = new PdfName("img" + images.size());
-                if (image instanceof ImgWMF) {
-                    try {
-                        ImgWMF wmf = (ImgWMF) image;
-                        wmf.readWMF(PdfTemplate.createTemplate(this, 0, 0));
-                    } catch (Exception e) {
-                        throw new DocumentException(e);
-                    }
-                }
-            } else {
-                PdfIndirectReference dref = image.getDirectReference();
-                if (dref != null) {
-                    PdfName rname = new PdfName("img" + images.size());
-                    images.put(image.getMySerialId(), rname);
-                    imageDictionary.put(rname, dref);
-                    return rname;
-                }
-                Image maskImage = image.getImageMask();
-                PdfIndirectReference maskRef = null;
-                if (maskImage != null) {
-                    PdfName mname = images.get(maskImage.getMySerialId());
-                    maskRef = getImageReference(mname);
-                }
-                PdfImage i = new PdfImage(image, "img" + images.size(), maskRef);
-                if (image instanceof ImgJBIG2) {
-                    byte[] globals = ((ImgJBIG2) image).getGlobalBytes();
-                    if (globals != null) {
-                        PdfDictionary decodeparms = new PdfDictionary();
-                        decodeparms.put(PdfName.JBIG2GLOBALS, getReferenceJBIG2Globals(globals));
-                        i.put(PdfName.DECODEPARMS, decodeparms);
-                    }
-                }
-                if (image.hasICCProfile()) {
-                    PdfICCBased icc = new PdfICCBased(image.getICCProfile(), image.getCompressionLevel());
-                    PdfIndirectReference iccRef = add(icc);
-                    PdfArray iccArray = new PdfArray();
-                    iccArray.add(PdfName.ICCBASED);
-                    iccArray.add(iccRef);
-                    PdfArray colorspace = i.getAsArray(PdfName.COLORSPACE);
-                    if (colorspace != null) {
-                        if (colorspace.size() > 1 && PdfName.INDEXED.equals(colorspace.getPdfObject(0))) {
-                            colorspace.set(1, iccArray);
-                        } else {
-                            i.put(PdfName.COLORSPACE, iccArray);
-                        }
-                    } else {
-                        i.put(PdfName.COLORSPACE, iccArray);
-                    }
-                }
-                add(i, fixedRef);
-                name = i.name();
-            }
-            images.put(image.getMySerialId(), name);
-        }
-        return name;
-    }
-
-    /**
      * Writes a <CODE>PdfImage</CODE> to the outputstream.
      *
      * @param pdfImage the image to be added
@@ -2869,10 +1846,6 @@ public class PdfWriter extends DocWriter implements
     PdfIndirectReference add(PdfImage pdfImage, PdfIndirectReference fixedRef) throws PdfException {
         if (!imageDictionary.contains(pdfImage.name())) {
             PdfXConformanceImp.checkPDFXConformance(this, PdfXConformanceImp.PDFXKEY_IMAGE, pdfImage);
-            if (fixedRef instanceof PRIndirectReference r2) {
-                fixedRef = new PdfIndirectReference(0,
-                        getNewObjectNumber(r2.getReader(), r2.getNumber(), r2.getGeneration()));
-            }
             try {
                 if (fixedRef == null) {
                     fixedRef = addToBody(pdfImage).getIndirectReference();
@@ -2937,31 +1910,6 @@ public class PdfWriter extends DocWriter implements
         }
         JBIG2Globals.put(stream, ref.getIndirectReference());
         return ref.getIndirectReference();
-    }
-
-//  [M4] Old table functionality; do we still need it?
-
-    /**
-     * Checks if a <CODE>Table</CODE> fits the current page of the <CODE>PdfDocument</CODE>.
-     *
-     * @param table  the table that has to be checked
-     * @param margin a certain margin
-     * @return <CODE>true</CODE> if the <CODE>Table</CODE> fits the page, <CODE>false</CODE> otherwise.
-     */
-
-    public boolean fitsPage(Table table, float margin) {
-        return pdf.bottom(table) > pdf.indentBottom() + margin;
-    }
-
-    /**
-     * Checks if a <CODE>Table</CODE> fits the current page of the <CODE>PdfDocument</CODE>.
-     *
-     * @param table the table that has to be checked
-     * @return <CODE>true</CODE> if the <CODE>Table</CODE> fits the page, <CODE>false</CODE> otherwise.
-     */
-
-    public boolean fitsPage(Table table) {
-        return fitsPage(table, 0);
     }
 //  [F12] tagged PDF
 
@@ -3074,10 +2022,7 @@ public class PdfWriter extends DocWriter implements
             }
             int p = streamObjects.size();
             int idx = numObj++;
-            PdfEncryption enc = writer.crypto;
-            writer.crypto = null;
             obj.toPdf(writer, streamObjects);
-            writer.crypto = enc;
             streamObjects.append(' ');
             index.append(nObj).append(' ').append(p).append(' ');
             return new PdfWriter.PdfBody.PdfCrossReference(2, nObj, currentObjNum, idx);
@@ -3257,11 +2202,8 @@ public class PdfWriter extends DocWriter implements
                     idx.add(new PdfNumber(section));
                 }
                 xr.put(PdfName.INDEX, idx);
-                PdfEncryption enc = writer.crypto;
-                writer.crypto = null;
                 PdfIndirectObject indirect = new PdfIndirectObject(refNumber, xr, writer);
                 indirect.writeTo(writer.getOs());
-                writer.crypto = enc;
             } else {
                 os.write(getISOBytes("xref\n"));
                 Iterator<PdfCrossReference> i = xrefs.iterator();
@@ -3463,5 +2405,134 @@ public class PdfWriter extends DocWriter implements
             super.toPdf(null, os);
             os.write('\n');
         }
+    }
+
+
+
+    /**
+     * Adds a <CODE>BaseFont</CODE> to the document but not to the page resources. It is used for templates.
+     *
+     * @param bf the <CODE>BaseFont</CODE> to add
+     * @return an <CODE>Object[]</CODE> where position 0 is a <CODE>PdfName</CODE> and position 1 is an
+     * <CODE>PdfIndirectReference</CODE>
+     */
+
+    FontDetails addSimple(BaseFont bf) {
+        FontDetails ret = documentFonts.get(bf);
+        if (ret == null) {
+            PdfXConformanceImp.checkPDFXConformance(this, PdfXConformanceImp.PDFXKEY_FONT, bf);
+            ret = new FontDetails(new PdfName("F" + (fontNumber++)), body.getPdfIndirectReference(), bf);
+            documentFonts.put(bf, ret);
+        }
+        return ret;
+    }
+
+
+
+    /**
+     * Adds a template to the document but not to the page resources.
+     *
+     * @param template   the template to add
+     * @param forcedName the template name, rather than a generated one. Can be null
+     * @return the <CODE>PdfName</CODE> for this template
+     */
+
+    PdfName addDirectTemplateSimple(PdfTemplate template, PdfName forcedName) {
+        PdfIndirectReference ref = template.getIndirectReference();
+        Object[] obj = formXObjects.get(ref);
+        PdfName name;
+        try {
+            if (obj == null) {
+                if (forcedName == null) {
+                    name = new PdfName("Xf" + formXObjectsCounter);
+                    ++formXObjectsCounter;
+                } else {
+                    name = forcedName;
+                }
+                formXObjects.put(ref, new Object[]{name, template});
+            } else {
+                name = (PdfName) obj[0];
+            }
+        } catch (Exception e) {
+            throw new ExceptionConverter(e);
+        }
+        return name;
+    }
+
+
+
+    /**
+     * Use this method to adds an image to the document but not to the page resources. It is used with templates and
+     * <CODE>Document.add(Image)</CODE>. Use this method only if you know what you're doing!
+     *
+     * @param image the <CODE>Image</CODE> to add
+     * @return the name of the image added
+     * @throws PdfException      on error
+     * @throws DocumentException on error
+     */
+    public PdfName addDirectImageSimple(Image image) throws DocumentException {
+        return addDirectImageSimple(image, null);
+    }
+
+
+    /**
+     * Adds an image to the document but not to the page resources. It is used with templates and
+     * <CODE>Document.add(Image)</CODE>. Use this method only if you know what you're doing!
+     *
+     * @param image    the <CODE>Image</CODE> to add
+     * @param fixedRef the reference to used. It may be <CODE>null</CODE>, a <CODE>PdfIndirectReference</CODE> or a
+     *                 <CODE>PRIndirectReference</CODE>.
+     * @return the name of the image added
+     * @throws PdfException      on error
+     * @throws DocumentException on error
+     */
+    public PdfName addDirectImageSimple(Image image, PdfIndirectReference fixedRef) throws DocumentException {
+        PdfName name;
+        // if the images is already added, just retrieve the name
+        if (images.containsKey(image.getMySerialId())) {
+            name = images.get(image.getMySerialId());
+        } else {
+            // if it's a new image, add it to the document
+            if (image.isImgTemplate()) {
+                name = new PdfName("img" + images.size());
+            } else {
+                PdfIndirectReference dref = image.getDirectReference();
+                if (dref != null) {
+                    PdfName rname = new PdfName("img" + images.size());
+                    images.put(image.getMySerialId(), rname);
+                    imageDictionary.put(rname, dref);
+                    return rname;
+                }
+                Image maskImage = image.getImageMask();
+                PdfIndirectReference maskRef = null;
+                if (maskImage != null) {
+                    PdfName mname = images.get(maskImage.getMySerialId());
+                    maskRef = getImageReference(mname);
+                }
+                PdfImage i = new PdfImage(image, "img" + images.size(), maskRef);
+                if (image.hasICCProfile()) {
+                    PdfICCBased icc = new PdfICCBased(image.getICCProfile(), image.getCompressionLevel());
+                    PdfIndirectReference iccRef = add(icc);
+                    PdfArray iccArray = new PdfArray();
+                    iccArray.add(PdfName.ICCBASED);
+                    iccArray.add(iccRef);
+                    PdfObject csObj = i.get(PdfName.COLORSPACE);
+                    PdfArray colorspace = csObj instanceof PdfArray ? (PdfArray) csObj : null;
+                    if (colorspace != null) {
+                        if (colorspace.size() > 1 && PdfName.INDEXED.equals(colorspace.getPdfObject(0))) {
+                            colorspace.set(1, iccArray);
+                        } else {
+                            i.put(PdfName.COLORSPACE, iccArray);
+                        }
+                    } else {
+                        i.put(PdfName.COLORSPACE, iccArray);
+                    }
+                }
+                add(i, fixedRef);
+                name = i.name();
+            }
+            images.put(image.getMySerialId(), name);
+        }
+        return name;
     }
 }

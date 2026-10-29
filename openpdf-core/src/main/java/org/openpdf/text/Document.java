@@ -186,16 +186,6 @@ public class Document implements DocListener {
      * Current pagenumber
      */
     protected int pageN = 0;
-
-    // headers, footers
-    /**
-     * This is the textual part of a Page; it can contain a header
-     */
-    protected HeaderFooter header = null;
-    /**
-     * This is the textual part of the footer
-     */
-    protected HeaderFooter footer = null;
     /**
      * This is a chapter number in case ChapterAutoNumber is used.
      */
@@ -429,60 +419,6 @@ public class Document implements DocListener {
             listener.newPage();
         }
         return true;
-    }
-
-    /**
-     * Changes the header of this document.
-     * <p>
-     * This change will be effective starting from the next page. If you want to have a header on the first page, you
-     * need to set it before opening the document.
-     *
-     * @param header the new header
-     */
-    public void setHeader(HeaderFooter header) {
-        this.header = header;
-        for (DocListener listener : listeners) {
-            listener.setHeader(header);
-        }
-    }
-
-    /**
-     * Resets the header of this document.
-     * <p>
-     * This change will be effective starting from the next page.
-     */
-    public void resetHeader() {
-        this.header = null;
-        for (DocListener listener : listeners) {
-            listener.resetHeader();
-        }
-    }
-
-    /**
-     * Changes the footer of this document.
-     * <p>
-     * This change will be effective starting from the next page. If you want to have a footer on the first page, you
-     * need to set it before opening the document.
-     *
-     * @param footer the new footer
-     */
-    public void setFooter(HeaderFooter footer) {
-        this.footer = footer;
-        for (DocListener listener : listeners) {
-            listener.setFooter(footer);
-        }
-    }
-
-    /**
-     * Resets the footer of this document.
-     * <p>
-     * This change will be effective starting from the next page.
-     */
-    public void resetFooter() {
-        this.footer = null;
-        for (DocListener listener : listeners) {
-            listener.resetFooter();
-        }
     }
 
     /**

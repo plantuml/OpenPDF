@@ -147,11 +147,6 @@ public abstract class PdfObject {
      */
     protected int type;
 
-    /**
-     * Holds the indirect reference.
-     */
-    protected PRIndirectReference indRef;
-
     // CONSTRUCTORS
 
     /**
@@ -396,23 +391,5 @@ public abstract class PdfObject {
      */
     public boolean isIndirect() {
         return (type == INDIRECT);
-    }
-
-    /**
-     * Get the indirect reference
-     *
-     * @return A <CODE>PdfIndirectReference</CODE>
-     */
-    public PRIndirectReference getIndRef() {
-        return indRef;
-    }
-
-    /**
-     * Set the indirect reference
-     *
-     * @param indRef New value as a <CODE>PdfIndirectReference</CODE>
-     */
-    public void setIndRef(PRIndirectReference indRef) {
-        this.indRef = indRef;
     }
 }

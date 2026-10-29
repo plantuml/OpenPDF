@@ -82,8 +82,6 @@ public class PdfTemplate extends PdfContentByte {
 
     protected PdfTransparencyGroup group;
 
-    protected PdfOCG layer;
-
     /**
      * Creates a <CODE>PdfTemplate</CODE>.
      */
@@ -180,24 +178,6 @@ public class PdfTemplate extends PdfContentByte {
         this.bBox = bBox;
     }
 
-    /**
-     * Gets the layer this template belongs to.
-     *
-     * @return the layer this template belongs to or <code>null</code> for no layer defined
-     */
-    public PdfOCG getLayer() {
-        return layer;
-    }
-
-    /**
-     * Sets the layer this template belongs to.
-     *
-     * @param layer the layer this template belongs to
-     */
-    public void setLayer(PdfOCG layer) {
-        this.layer = layer;
-    }
-
     public void setMatrix(float a, float b, float c, float d, float e, float f) {
         matrix = new PdfArray();
         matrix.add(new PdfNumber(a));
@@ -270,7 +250,6 @@ public class PdfTemplate extends PdfContentByte {
         tpl.pageResources = pageResources;
         tpl.bBox = new Rectangle(bBox);
         tpl.group = group;
-        tpl.layer = layer;
         if (matrix != null) {
             tpl.matrix = new PdfArray(matrix);
         }

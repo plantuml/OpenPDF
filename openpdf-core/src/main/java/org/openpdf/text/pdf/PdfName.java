@@ -3204,51 +3204,6 @@ public class PdfName extends PdfObject implements Comparable<PdfName> {
      */
     public static final PdfName ZOOM = new PdfName("Zoom");
 
-    /**
-     * map strings to all known static names
-     *
-     * @since 2.1.6
-     */
-    public static Map<String, PdfName> staticNames;
-
-    /**
-     * List of names used for widget annotations
-     */
-    private static final ArrayList<PdfName> widgetNames;
-
-    /**
-     * List of names used in form field dictionaries
-     */
-    private static final ArrayList<PdfName> formfieldNames;
-
-    /*
-     * Use reflection to cache all the static public final names so
-     * future <code>PdfName</code> additions don't have to be "added twice".
-     * A bit less efficient (around 50ms spent here on a 2.2ghz machine),
-     *  but Much Less error prone.
-     * @since 2.1.6
-     */
-    static {
-        Field[] fields = PdfName.class.getDeclaredFields();
-        staticNames = new HashMap<>(fields.length);
-        final int flags = Modifier.STATIC | Modifier.PUBLIC | Modifier.FINAL;
-        try {
-            for (Field curFld : fields) {
-                if ((curFld.getModifiers() & flags) == flags &&
-                        curFld.getType().equals(PdfName.class)) {
-                    PdfName name = (PdfName) curFld.get(null);
-                    staticNames.put(decodeName(name.toString()), name);
-                }
-            }
-        } catch (Exception e) {
-            throw new IllegalStateException("The pdfname map could not be initialized!", e);
-        }
-
-        widgetNames = new ArrayList<>();
-        formfieldNames = new ArrayList<>();
-        initLists();
-    }
-
     private int hash = 0;
 
     /**
@@ -3288,77 +3243,6 @@ public class PdfName extends PdfObject implements Comparable<PdfName> {
      */
     public PdfName(byte[] bytes) {
         super(PdfObject.NAME, bytes);
-    }
-
-    // CONSTRUCTORS
-
-    private static void initLists() {
-        //All possible values for an annotation dictionary
-        widgetNames.add(PdfName.TYPE);
-        widgetNames.add(PdfName.SUBTYPE);
-        widgetNames.add(PdfName.RECT);
-        widgetNames.add(PdfName.CONTENTS);
-        widgetNames.add(PdfName.P);
-        widgetNames.add(PdfName.NM);
-        widgetNames.add(PdfName.M);
-        widgetNames.add(PdfName.F);
-        widgetNames.add(PdfName.AP);
-        widgetNames.add(PdfName.AS);
-        widgetNames.add(PdfName.BORDER);
-        widgetNames.add(PdfName.C);
-        widgetNames.add(PdfName.STRUCTPARENT);
-        widgetNames.add(PdfName.OC);
-        widgetNames.add(PdfName.AF);
-        widgetNames.add(PdfName.ca);
-        widgetNames.add(PdfName.CA);
-        widgetNames.add(PdfName.BM);
-        widgetNames.add(PdfName.LANG);
-        //Additional entries specific to a widget annotation
-        widgetNames.add(PdfName.H);
-        widgetNames.add(PdfName.MK);
-        widgetNames.add(PdfName.A);
-        //does exist in both and should have the identical meaning => so either or suffice
-        //widgetNames.add(PdfName.AA);
-        widgetNames.add(PdfName.BS);
-        //When separating a merged dictionary the Parent stays in the field thus it is disabled here
-        //widgetNames.add(PdfName.PARENT);
-
-        //All possible values for an form field dictionary
-        formfieldNames.add(PdfName.FT);
-        formfieldNames.add(PdfName.PARENT);
-        formfieldNames.add(PdfName.KIDS);
-        formfieldNames.add(PdfName.T);
-        formfieldNames.add(PdfName.TU);
-        formfieldNames.add(PdfName.TM);
-        formfieldNames.add(PdfName.FF);
-        formfieldNames.add(PdfName.V);
-        formfieldNames.add(PdfName.DV);
-        formfieldNames.add(PdfName.AA);
-        //Additional entries common to all fields containing variable text
-        formfieldNames.add(PdfName.DA);
-        formfieldNames.add(PdfName.Q);
-        formfieldNames.add(PdfName.DS);
-        formfieldNames.add(PdfName.RV);
-        //Additional entry specific to check box and radio button fields
-        formfieldNames.add(PdfName.OPT);
-        //Additional entry specific to a text field
-        formfieldNames.add(PdfName.MAXLEN);
-        //Additional entries specific to a choice field
-        formfieldNames.add(PdfName.TI);
-        formfieldNames.add(PdfName.I);
-        //Additional entries specific to a signature field
-        formfieldNames.add(PdfName.LOCK);
-        formfieldNames.add(PdfName.SV);
-        //Additional entries common to all fields containing variable text
-
-    }
-
-    public static ArrayList<PdfName> getWidgetNames() {
-        return widgetNames;
-    }
-
-    public static ArrayList<PdfName> getFormfieldNames() {
-        return formfieldNames;
     }
 
     // CLASS METHODS
@@ -3409,32 +3293,6 @@ public class PdfName extends PdfObject implements Comparable<PdfName> {
             }
         }
         return buf.toByteArray();
-    }
-
-    /**
-     * Decodes an escaped name given in the form "/AB#20CD" into "AB CD".
-     *
-     * @param name the name to decode
-     * @return the decoded name
-     */
-    public static String decodeName(String name) {
-        StringBuilder buf = new StringBuilder();
-        try {
-            int len = name.length();
-            for (int k = 1; k < len; ++k) {
-                char c = name.charAt(k);
-                if (c == '#') {
-                    char c1 = name.charAt(k + 1);
-                    char c2 = name.charAt(k + 2);
-                    c = (char) ((PRTokeniser.getHex(c1) << 4) + PRTokeniser.getHex(c2));
-                    k += 2;
-                }
-                buf.append(c);
-            }
-        } catch (IndexOutOfBoundsException e) {
-            // empty on purpose
-        }
-        return buf.toString();
     }
 
     /**

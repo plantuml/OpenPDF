@@ -261,20 +261,6 @@ public class PdfDictionary extends PdfObject {
     }
 
     /**
-     * Returns the <CODE>PdfObject</CODE> associated to the specified
-     * <VAR>key</VAR>, resolving a possible indirect reference to a direct
-     * object.
-     * <p>
-     * This method will never return a <CODE>PdfIndirectReference</CODE> object.
-     *
-     * @param key A key for the <CODE>PdfObject</CODE> to be returned
-     * @return A direct <CODE>PdfObject</CODE> or <CODE>null</CODE>
-     */
-    public PdfObject getDirectObject(PdfName key) {
-        return PdfReader.getPdfObject(get(key));
-    }
-
-    /**
      * Get all keys that are set.
      *
      * @return <CODE>true</CODE> if it is, otherwise <CODE>false</CODE>.
@@ -375,6 +361,43 @@ public class PdfDictionary extends PdfObject {
         }
     }
 
+    /**
+     * Returns a <CODE>PdfObject</CODE> as a <CODE>PdfIndirectReference</CODE>.
+     * <p>
+     * The object associated with the <CODE>PdfName</CODE> given is retrieved If it is a
+     * <CODE>PdfIndirectReference</CODE>, it is cast down and returned as such. Otherwise <CODE>null</CODE> is
+     * returned.
+     *
+     * @param key A <CODE>PdfName</CODE>
+     * @return the associated <CODE>PdfIndirectReference</CODE> object, or <CODE>null</CODE>
+     */
+    public PdfIndirectReference getAsIndirectObject(PdfName key) {
+        PdfIndirectReference ref = null;
+        PdfObject orig = get(key); // not getDirect this time.
+        if (orig != null && orig.isIndirect()) {
+            ref = (PdfIndirectReference) orig;
+        }
+        return ref;
+    }
+
+
+
+    /**
+     * Returns the <CODE>PdfObject</CODE> associated to the specified
+     * <VAR>key</VAR>, resolving a possible indirect reference to a direct
+     * object.
+     * <p>
+     * This method will never return a <CODE>PdfIndirectReference</CODE> object.
+     *
+     * @param key A key for the <CODE>PdfObject</CODE> to be returned
+     * @return A direct <CODE>PdfObject</CODE> or <CODE>null</CODE>
+     */
+    public PdfObject getDirectObject(PdfName key) {
+        return get(key);
+    }
+
+
+
     // DOWNCASTING GETTERS
     // @author Mark A Storer (2/17/06)
 
@@ -396,6 +419,8 @@ public class PdfDictionary extends PdfObject {
         return dict;
     }
 
+
+
     /**
      * Returns a <CODE>PdfObject</CODE> as a <CODE>PdfArray</CODE>, resolving indirect references.
      * <p>
@@ -413,6 +438,8 @@ public class PdfDictionary extends PdfObject {
         }
         return array;
     }
+
+
 
     /**
      * Returns a <CODE>PdfObject</CODE> as a <CODE>PdfStream</CODE>, resolving indirect references.
@@ -432,6 +459,8 @@ public class PdfDictionary extends PdfObject {
         return stream;
     }
 
+
+
     /**
      * Returns a <CODE>PdfObject</CODE> as a <CODE>PdfString</CODE>, resolving indirect references.
      * <p>
@@ -449,6 +478,8 @@ public class PdfDictionary extends PdfObject {
         }
         return string;
     }
+
+
 
     /**
      * Returns a <CODE>PdfObject</CODE> as a <CODE>PdfNumber</CODE>, resolving indirect references.
@@ -468,6 +499,8 @@ public class PdfDictionary extends PdfObject {
         return number;
     }
 
+
+
     /**
      * Returns a <CODE>PdfObject</CODE> as a <CODE>PdfName</CODE>, resolving indirect references.
      * <p>
@@ -486,6 +519,8 @@ public class PdfDictionary extends PdfObject {
         return name;
     }
 
+
+
     /**
      * Returns a <CODE>PdfObject</CODE> as a <CODE>PdfBoolean</CODE>, resolving indirect references.
      * <p>
@@ -502,24 +537,5 @@ public class PdfDictionary extends PdfObject {
             bool = (PdfBoolean) orig;
         }
         return bool;
-    }
-
-    /**
-     * Returns a <CODE>PdfObject</CODE> as a <CODE>PdfIndirectReference</CODE>.
-     * <p>
-     * The object associated with the <CODE>PdfName</CODE> given is retrieved If it is a
-     * <CODE>PdfIndirectReference</CODE>, it is cast down and returned as such. Otherwise <CODE>null</CODE> is
-     * returned.
-     *
-     * @param key A <CODE>PdfName</CODE>
-     * @return the associated <CODE>PdfIndirectReference</CODE> object, or <CODE>null</CODE>
-     */
-    public PdfIndirectReference getAsIndirectObject(PdfName key) {
-        PdfIndirectReference ref = null;
-        PdfObject orig = get(key); // not getDirect this time.
-        if (orig != null && orig.isIndirect()) {
-            ref = (PdfIndirectReference) orig;
-        }
-        return ref;
     }
 }
