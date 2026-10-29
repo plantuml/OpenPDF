@@ -84,7 +84,12 @@ public class PdfEncryption {
     /**
      * Cryptographically strong random source used for generating document IDs and IVs.
      */
-    private static final SecureRandom SECURE_RANDOM = new SecureRandom();
+    /**
+     * Created on first use (not at class initialization): the native (TeaVM C) build has no SecureRandom.
+     */
+    private static final class SecureRandomHolder {
+        static final SecureRandom SECURE_RANDOM = new SecureRandom();
+    }
 
     private static final byte[] pad = {(byte) 0x28, (byte) 0xBF, (byte) 0x4E,
             (byte) 0x5E, (byte) 0x4E, (byte) 0x75, (byte) 0x8A, (byte) 0x41,
@@ -204,7 +209,13 @@ public class PdfEncryption {
         // 16 bytes of cryptographically strong random data, replacing
         // the previous MD5(time+memory+seq) construction.
         byte[] id = new byte[16];
-        SECURE_RANDOM.nextBytes(id);
+        // Native (TeaVM C) build: no SecureRandom (it needs the crypto API of a browser).
+        // The marker is tested here, so that TeaVM prunes the SecureRandom code below.
+        if (NativePlatform.isC()) {
+            new java.util.Random(System.nanoTime() ^ System.currentTimeMillis()).nextBytes(id);
+            return id;
+        }
+        SecureRandomHolder.SECURE_RANDOM.nextBytes(id);
         return id;
     }
 

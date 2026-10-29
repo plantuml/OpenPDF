@@ -1472,6 +1472,15 @@ public abstract class BaseFont {
      */
     protected String createSubsetPrefix() {
         String s = "";
+        // Native (TeaVM C) build: no SecureRandom. The marker is tested here, so that TeaVM
+        // prunes the SecureRandom code below.
+        if (NativePlatform.isC()) {
+            final java.util.Random random = new java.util.Random(System.nanoTime());
+            for (int k = 0; k < 6; ++k) {
+                s += (char) (random.nextDouble() * 26 + 'A');
+            }
+            return s + "+";
+        }
         SecureRandom secureRandom = getSecureRandom();
         for (int k = 0; k < 6; ++k) {
             s += (char) (secureRandom.nextDouble() * 26 + 'A');
